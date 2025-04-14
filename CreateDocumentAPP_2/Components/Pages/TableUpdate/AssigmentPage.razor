@@ -1,0 +1,56 @@
+﻿@page "/assigment-list"
+
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ProjeDbContext DbContext
+
+
+
+
+<MudTabs>
+    <MudTabPanel Text="Departmana Kullanıcı Atama">
+        @if (CurrentCompanyId != null)
+        {
+            <DepartmanAssignSection CompanyId="CurrentCompanyId.Value" />
+        }
+        else
+        {
+            <MudText Color="Color.Error">Kullanıcının şirket bilgisi alınamadı.</MudText>
+        }
+    </MudTabPanel>
+
+    <MudTabPanel Text="Projeye Kullanıcı Atama">
+        @if (CurrentCompanyId != null)
+        {
+            <ProjectAssignSection CompanyId="CurrentCompanyId.Value" />
+        }
+        else
+        {
+            <MudText Color="Color.Error">Kullanıcının şirket bilgisi alınamadı.</MudText>
+        }
+    </MudTabPanel>
+</MudTabs>
+
+
+
+
+@code {
+    private Kullanici? CurrentUser;
+    private int? CurrentCompanyId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var email = authState.User.Identity?.Name;
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            CurrentUser = await DbContext.Kullanicilar
+                .FirstOrDefaultAsync(k => k.Email == email);
+
+            if (CurrentUser?.CompanyID != null)
+            {
+                CurrentCompanyId = CurrentUser.CompanyID;
+            }
+        }
+    }
+}

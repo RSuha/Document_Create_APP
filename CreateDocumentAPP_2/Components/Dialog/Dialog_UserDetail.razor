@@ -1,0 +1,148 @@
+﻿@using CreateDocumentAPP_2.Entities
+@using CreateDocumentAPP_2.Entities.Model
+@using MudBlazor
+@using Microsoft.EntityFrameworkCore
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <MudPaper Class="p-4">
+            <MudText Typo="Typo.h6">Kullanıcı Detayları</MudText>
+
+            <MudDivider Class="my-2" />
+
+            <MudGrid>
+                @if (!string.IsNullOrEmpty(User?.Ad))
+                {
+                    <MudItem xs="6"><b>Ad:</b></MudItem> <MudItem xs="6">@User.Ad</MudItem>
+                }
+                @if (!string.IsNullOrEmpty(User?.Soyad))
+                {
+                    <MudItem xs="6"><b>Soyad:</b></MudItem> <MudItem xs="6">@User.Soyad</MudItem>
+                }
+                @if (!string.IsNullOrEmpty(User?.Email))
+                {
+                    <MudItem xs="6"><b>Email:</b></MudItem> <MudItem xs="6">@User.Email</MudItem>
+                }
+                @if (User?.Rol != null)
+                {
+                    <MudItem xs="6"><b>Rol:</b></MudItem> <MudItem xs="6">@User.Rol</MudItem>
+                }
+                @if (User?.Title != null)
+                {
+                    <MudItem xs="6"><b>Ünvan:</b></MudItem> <MudItem xs="6">@User.Title</MudItem>
+                }
+                @if (User?.OlusturmaTarihi != null)
+                {
+                    <MudItem xs="6"><b>Oluşturulma Tarihi:</b></MudItem>
+                    <MudItem xs="6">@User.OlusturmaTarihi.ToLocalTime().ToString("g")</MudItem>
+                }
+                @if (User?.SonGiris != null)
+                {
+                    <MudItem xs="6"><b>Son Giriş:</b></MudItem>
+                    <MudItem xs="6">@User.SonGiris?.ToLocalTime().ToString("g")</MudItem>
+                }
+                @if (!string.IsNullOrEmpty(User?.Departman?.Ad))
+                {
+                    <MudItem xs="6"><b>Departman:</b></MudItem> <MudItem xs="6">@User.Departman.Ad</MudItem>
+                }
+                @if (!string.IsNullOrEmpty(User?.Company?.Ad))
+                {
+                    <MudItem xs="6"><b>Şirket:</b></MudItem> <MudItem xs="6">@User.Company.Ad</MudItem>
+                }
+
+            </MudGrid>
+
+            <br />
+            <MudDivider/>
+            <br />
+
+            @if (UserProjects != null && UserProjects.Any())
+            {
+                <MudTable T="ProjeTakim" Items="@UserProjects" Hover="true" Striped="true">
+                    <HeaderContent>
+                        <MudTh>Proje Adı</MudTh>
+                        <MudTh>Başlangıç Tarihi</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="context">
+                        <MudTd>@context.Proje?.ProjeAdi</MudTd>
+                        <MudTd>@context.Proje?.BaslangicTarihi?.ToShortDateString()</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+            else
+            {
+                <MudTypography>Bu kullanıcı herhangi bir projeye atanmadı.</MudTypography>
+            }
+
+        </MudPaper>
+
+
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="@Cancel">Kapat</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter]
+    public Kullanici User { get; set; } = new();
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Inject] private ProjeDbContext DbContext { get; set; } = default!;
+
+    private List<ProjeTakim> UserProjects = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserProjects();
+    }
+
+
+    private async Task LoadUserProjects()
+    {
+        try
+        {
+            UserProjects = await DbContext.ProjeTakimlari
+                .Where(pt => pt.UserID == User.UserID)
+                .Include(pt => pt.Proje)
+                .ToListAsync();
+
+            // Verinin geldiğini kontrol et
+            Console.WriteLine($"Projeler Yüklendi: {UserProjects.Count} adet proje bulundu.");
+        }
+        catch
+        {
+            UserProjects = new List<ProjeTakim>();
+            Console.WriteLine("Projeler yüklenirken hata oluştu.");
+        }
+    }
+
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (User != null && User.UserID > 0)
+        {
+            Console.WriteLine($"User detayları yükleniyor: {User.UserID}");
+
+            User = await DbContext.Kullanicilar
+                .Include(k => k.Departman)
+                .Include(k => k.Company)
+                .Include(k => k.ProjeUyelikleri)
+                .ThenInclude(pu => pu.Proje)
+                .FirstOrDefaultAsync(k => k.UserID == User.UserID) ?? new Kullanici();
+
+            Console.WriteLine($"Güncellenmiş Kullanıcı: {User.Ad} {User.Soyad}, Departman: {User.Departman?.Ad}");
+
+            Console.WriteLine($"Kullanıcının Proje Sayısı: {User.ProjeUyelikleri?.Count}");
+            foreach (var projeUye in User.ProjeUyelikleri ?? new List<ProjeTakim>())
+            {
+                Console.WriteLine($"Proje: {projeUye.Proje?.ProjeAdi}, Atanma Tarihi: {projeUye.AtanmaTarihi}");
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

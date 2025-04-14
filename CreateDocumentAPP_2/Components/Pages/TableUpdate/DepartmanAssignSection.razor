@@ -1,0 +1,97 @@
+﻿
+@inject ProjeDbContext DbContext
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudPaper Class="p-4" Elevation="4">
+    <MudText Typo="Typo.h6" Class="mb-3">🏢 Şirket Departmanları</MudText>
+
+    <MudTextField @bind-Value="_searchText" Placeholder="Departman adına göre ara..."
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                  Class="mb-4" />
+
+    @if (_filteredDepartmanlar.Any())
+    {
+        <MudGrid>
+            @foreach (var departman in _filteredDepartmanlar)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3">
+                    <MudCard Class="mb-4 department-card clickable-card" Style="height: 100%; transition: all 0.3s ease;"
+                             @onclick="() => OpenAssignDialog(departman)">
+                        <MudCardContent>
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Medium" Color="Color.Primary" />
+                                <MudText Typo="Typo.h6">@departman.Ad</MudText>
+                            </MudStack>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <MudText Color="Color.Secondary">Departman bulunamadı.</MudText>
+    }
+</MudPaper>
+
+<style>
+    .department-card:hover {
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        transform: scale(1.02);
+        cursor: pointer;
+    }
+</style>
+
+
+<style>
+    .department-card:hover {
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        transform: scale(1.02);
+    }
+</style>
+
+
+
+@code {
+    [Parameter] public int CompanyId { get; set; }
+
+    private List<Departman> _departmanlar = new();
+    private string _searchText = string.Empty;
+
+    private IEnumerable<Departman> _filteredDepartmanlar =>
+        string.IsNullOrWhiteSpace(_searchText)
+            ? _departmanlar
+            : _departmanlar.Where(d => d.Ad.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        _departmanlar = await DbContext.Departmanlar
+            .Where(d => d.CompanyID == CompanyId)
+            .ToListAsync();
+    }
+
+    private async Task OpenAssignDialog(Departman selectedDepartman)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Departman", selectedDepartman },
+            { "CompanyId", CompanyId }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true
+        };
+
+        var dialog = DialogService.Show<Dialog_DepartmentAssignment>($"'{selectedDepartman.Ad}' Departmanına Kullanıcı Ata", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            Snackbar.Add($"✅ Kullanıcı '{selectedDepartman.Ad}' departmanına atandı.", Severity.Success);
+        }
+    }
+}

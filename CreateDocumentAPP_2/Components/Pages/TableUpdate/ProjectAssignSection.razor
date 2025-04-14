@@ -1,0 +1,91 @@
+﻿@using CreateDocumentAPP_2.Entities.Model
+@inject ProjeDbContext DbContext
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudPaper Class="p-4" Elevation="4">
+    <MudText Typo="Typo.h6" Class="mb-3">📁 Şirket Projeleri</MudText>
+
+    <MudTextField @bind-Value="_searchText" Placeholder="Proje adına göre ara..."
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                  Class="mb-4" />
+
+    @if (_filteredProjeler.Any())
+    {
+        <MudGrid>
+            @foreach (var proje in _filteredProjeler)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3">
+                    <MudCard Class="mb-4 project-card clickable-card" Style="height: 100%; transition: all 0.3s ease;"
+                             @onclick="() => OpenProjectDialog(proje)">
+                        <MudCardContent>
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Assignment" Size="Size.Medium" Color="Color.Primary" />
+                                <MudText Typo="Typo.h6">@proje.ProjeAdi</MudText>
+                            </MudStack>
+                            @if (!string.IsNullOrWhiteSpace(proje.Aciklama))
+                            {
+                                <MudText Typo="Typo.body2" Class="mt-2">@proje.Aciklama</MudText>
+                            }
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <MudText Color="Color.Secondary">Proje bulunamadı.</MudText>
+    }
+</MudPaper>
+
+<style>
+    .project-card:hover {
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        transform: scale(1.02);
+        cursor: pointer;
+    }
+</style>
+
+@code {
+    [Parameter] public int CompanyId { get; set; }
+
+    private List<Proje> _projeler = new();
+    private string _searchText = string.Empty;
+
+    private IEnumerable<Proje> _filteredProjeler =>
+        string.IsNullOrWhiteSpace(_searchText)
+            ? _projeler
+            : _projeler.Where(p => p.ProjeAdi.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        _projeler = await DbContext.Projeler
+            .Where(p => p.CompanyID == CompanyId)
+            .ToListAsync();
+    }
+
+    private async Task OpenProjectDialog(Proje selectedProje)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Proje", selectedProje },
+            { "CompanyId", CompanyId }
+        };
+
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true
+            };
+
+        var dialog = DialogService.Show<Dialog_ProjectAssignment>($"'{selectedProje.ProjeAdi}' Projesine Kullanıcı Ata", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            Snackbar.Add($"✅ Kullanıcı '{selectedProje.ProjeAdi}' projesine atandı.", Severity.Success);
+        }
+    }
+}

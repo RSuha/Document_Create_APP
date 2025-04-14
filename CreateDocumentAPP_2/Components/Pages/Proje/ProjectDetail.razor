@@ -1,0 +1,174 @@
+﻿@page "/project-detail/{ProjeID:int}"
+@using CreateDocumentAPP_2.Entities.Model
+@inject ProjeDbContext Db
+@inject IDialogService DialogService
+@using MudBlazor
+
+<MudContainer Class="mt-4">
+    <MudPaper Class="p-4">
+        <MudCard>
+            <MudCardContent>
+                <MudText Typo="Typo.h4" Class="mb-4">📄 @proje?.ProjeAdi</MudText>
+
+                @if (proje == null)
+                {
+                    <MudAlert Severity="Severity.Warning">Proje bulunamadı.</MudAlert>
+                }
+                else
+                {
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                            <MudText><b>Proje Adı:</b> @proje.ProjeAdi</MudText>
+                            <MudText><b>Açıklama:</b> @proje.Aciklama</MudText>
+                            <MudText><b>Durum:</b> @proje.Durum</MudText>
+                            <MudText><b>Başlangıç:</b> @proje.BaslangicTarihi?.ToShortDateString()</MudText>
+                            <MudText><b>Bitiş:</b> @proje.BitisTarihi?.ToShortDateString()</MudText>
+                            <MudText><b>Kategori:</b> @proje.Kategori?.Ad</MudText>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.h6">Oluşturan Kullanıcı</MudText>
+                            <MudText><b>Ad Soyad:</b> @proje.Olusturan?.Ad @proje.Olusturan?.Soyad</MudText>
+                            <MudText><b>Email:</b> @proje.Olusturan?.Email</MudText>
+                            <MudText><b>Rol:</b> @proje.Olusturan?.Rol</MudText>
+                            <MudText><b>Ünvan:</b> @proje.Olusturan?.Title</MudText>
+                            <MudText><b>Departman:</b> @proje.Olusturan?.Departman?.Ad</MudText>
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.h6">🎯 Stratejik Hedefler</MudText>
+                    <MudText>@proje.ProjeDetay?.StratejikHedefler</MudText>
+
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.h6">💰 Finansal Bilgiler</MudText>
+                    <MudList T="object">
+                        @foreach (var item in proje.FinansalBilgiler)
+                        {
+                            <MudListItem>
+                                <MudListItemText>@item.IlgiliIs - <b>@item.AyrilanButce</b></MudListItemText>
+                            </MudListItem>
+                        }
+                    </MudList>
+
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.h6">🛠️ Teknik Gereksinimler</MudText>
+                    <MudTable Items="@proje.TeknikGereksinimler" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Gereksinim</MudTh>
+                            <MudTh>Notlar</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Gereksinim</MudTd>
+                            <MudTd>
+                                <MudButton Variant="Variant.Text" Color="Color.Primary"
+                                           OnClick='() => ShowNotesDialog(context.Notlar.ToList(), "🛠️ Teknik Gereksinim Notları", null, context.Id)'>
+                                    Notları Görüntüle
+                                </MudButton>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.h6">🧾 Fonksiyonel Gereksinimler</MudText>
+                    <MudTable Items="@proje.FonksiyonelGereksinimler" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Gereklilik</MudTh>
+                            <MudTh>Açıklama</MudTh>
+                            <MudTh>Önem</MudTh>
+                            <MudTh>Notlar</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Gereklilik</MudTd>
+                            <MudTd>@context.Aciklama</MudTd>
+                            <MudTd>@context.Onem</MudTd>
+                            <MudTd>
+                                <MudButton Variant="Variant.Text" Color="Color.Primary"
+                                           OnClick='() => ShowNotesDialog(context.Notlar.ToList(), "🧾 Fonksiyonel Gereksinim Notları", context.Id, null)'>
+                                    Notları Görüntüle
+                                </MudButton>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.h6">📊 Proje Diyagramları</MudText>
+                    <MudPaper Class="p-4">
+                        <MudText Typo="Typo.h6">📊 Proje Diyagramları</MudText>
+
+                        <div style="display: flex; overflow-x: auto; gap: 16px; padding: 1rem;">
+                            @foreach (var diyagram in proje.ProjeDiyagramlari)
+                            {
+                                <MudCard Style="min-width: 300px;">
+                                    <MudCardContent>
+                                        <MudText Typo="Typo.subtitle1">@diyagram.DiyagramAdi</MudText>
+                                        <img src="@diyagram.DiyagramUrl" alt="Diyagram" style="width: 100%; max-height: 200px; object-fit: contain;" @onclick="@(args => ShowImage($"/{diyagram.DiyagramUrl}"))" />
+                                    </MudCardContent>
+                                </MudCard>
+                            }
+                        </div>
+                    </MudPaper>
+
+
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.h6">👥 Proje Takım Üyeleri</MudText>
+                    <MudTable Items="@proje.ProjeUyeleri" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Ad Soyad</MudTh>
+                            <MudTh>Rol</MudTh>
+                            <MudTh>Ünvan</MudTh>
+                            <MudTh>Atanma Tarihi</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Kullanici?.Ad @context.Kullanici?.Soyad</MudTd>
+                            <MudTd>@context.Kullanici?.Rol</MudTd>
+                            <MudTd>@context.Kullanici?.Title</MudTd>
+                            <MudTd>@context.AtanmaTarihi.ToShortDateString()</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [Parameter]
+    public int ProjeID { get; set; }
+
+    private Proje? proje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        proje = await Db.Projeler
+            .Include(p => p.Kategori)
+            .Include(p => p.Olusturan).ThenInclude(k => k.Departman)
+            .Include(p => p.FinansalBilgiler)
+            .Include(p => p.TeknikGereksinimler).ThenInclude(t => t.Notlar)
+            .Include(p => p.FonksiyonelGereksinimler).ThenInclude(f => f.Notlar)
+            .Include(p => p.ProjeDetay)
+            .Include(p => p.ProjeDiyagramlari)
+            .Include(p => p.ProjeUyeleri).ThenInclude(pt => pt.Kullanici)
+            .FirstOrDefaultAsync(p => p.ProjeID == ProjeID);
+    }
+
+    private void ShowNotesDialog(List<GereksinimNotu> notlar, string dialogBaslik, int? fgId, int? tgId)
+    {
+        var parameters = new DialogParameters
+            {
+                ["Notlar"] = notlar,
+                ["DialogBaslik"] = dialogBaslik,
+                ["FonksiyonelGereksinimID"] = fgId,
+                ["TeknikGereksinimID"] = tgId
+            };
+
+        DialogService.Show<Dialog_ProjectDetail_NotesViewer>("Notlar", parameters);
+    }
+
+    void ShowImage(string? url)
+    {
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            DialogService.Show<Dialog_ShowImage>("Görsel", new DialogParameters { ["ImageUrl"] = url });
+        }
+    }
+
+}

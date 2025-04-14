@@ -1,0 +1,134 @@
+﻿@page "/user-list"
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ProjeDbContext DbContext
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using CreateDocumentAPP_2.Entities
+@using CreateDocumentAPP_2.Entities.Model
+@using Microsoft.EntityFrameworkCore
+@using MudBlazor
+@using CreateDocumentAPP_2.Components
+@using CreateDocumentAPP_2.Components.Layout
+@using CreateDocumentAPP_2.Components.Dialog
+
+<MudContainer>
+    <MudTHeadRow Variant="Variant.Title1" Class="mb-4">Kullanıcılar</MudTHeadRow>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <MudAlert Severity=Severity.Error Dense="true" Class="mb-3">
+            @ErrorMessage
+        </MudAlert>
+    }
+
+    <MudPaper Class="p-3 mt-3">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField Label="İsim veya E-posta ile Ara" @bind-Value="SearchTerm" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="Icons.Material.Filled.Search" />
+            </MudItem>
+
+            <MudItem xs="12" md="6" Class="d-flex justify-end">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddNewUser">Yeni Kullanıcı Ekle</MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudGrid Class="mt-4">
+        @if (IsLoading)
+        {
+            <MudProgressCircular Indeterminate="true" />
+            <p>Veriler yükleniyor...</p>
+        }
+        else
+        {
+            @foreach (var user in FilteredUserList)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3">
+                    <MudCard Class="p-2">
+                        <MudCardContent>
+                            <div>
+                                <h6>@user.Ad @user.Soyad</h6>
+                                <p>@user.Email</p>
+                                <p class="text-gray-600">Oluşturma Tarihi: @user.OlusturmaTarihi.ToShortDateString()</p>
+                            </div>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="() => OpenDialogAsync(user)">Detayları Gör</MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        }
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private string SearchTerm = "";
+    private bool IsLoading = true;
+    private string ErrorMessage = "";
+
+    private List<Kullanici> UserList = new();
+    private List<ProjeTakim> UserProjects = new();
+    private Kullanici? CurrentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+        IsLoading = false;
+    }
+
+    private async Task LoadUsers()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var email = authState.User.Identity?.Name;
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                CurrentUser = await DbContext.Kullanicilar
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(k => k.Email == email);
+
+                if (CurrentUser?.CompanyID != null)
+                {
+                    UserList = await DbContext.Kullanicilar
+                        .AsNoTracking()
+                        .Where(k => k.CompanyID == CurrentUser.CompanyID)
+                        .ToListAsync();
+                }
+            }
+
+            ErrorMessage = "";
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "Kullanıcılar yüklenirken bir hata oluştu.";
+        }
+    }
+
+    private List<Kullanici> FilteredUserList => string.IsNullOrWhiteSpace(SearchTerm)
+        ? UserList
+        : UserList.Where(u =>
+            (!string.IsNullOrEmpty(u.Ad) && u.Ad.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(u.Soyad) && u.Soyad.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(u.Email) && u.Email.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase))
+        ).ToList();
+
+    private void AddNewUser()
+    {
+        Navigation.NavigateTo("/create-user");
+    }
+
+    private async Task OpenDialogAsync(Kullanici user)
+    {
+        var parameters = new DialogParameters
+        {
+            { "User", user }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+
+        await DialogService.ShowAsync<Dialog_UserDetail>("Kullanıcı Detayları", parameters, options);
+    }
+}

@@ -1,0 +1,19 @@
+﻿
+<MudDialog MaxWidth="MaxWidth.Medium">
+    <DialogContent>
+        <div style="text-align:center">
+            <img src="@ImageUrl" alt="Büyütülmüş Görsel" style="max-width:100%; max-height:80vh; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.3);" />
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="() => MudDialog?.Close()">Kapat</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public string? ImageUrl { get; set; }
+}
+

@@ -1,0 +1,207 @@
+﻿@page "/default-home"
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@using CreateDocumentAPP_2.Components.Dialog
+@using CreateDocumentAPP_2.Entities
+@using CreateDocumentAPP_2.Entities.Model
+@using CreateDocumentAPP_2.Entities.Enum
+@using Microsoft.EntityFrameworkCore
+@using MudBlazor
+@inject ProjeDbContext DbContext
+
+<MudLayout>
+    <MudMainContent Style="padding:0px"> 
+        <MudContainer>
+            <MudText Variant="H4" Class="mt-4">Projelerim</MudText>
+
+            <!-- Hata Mesajı -->
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <MudAlert Severity=Severity.Error Dense="true" Class="mb-3">
+                    @ErrorMessage
+                </MudAlert>
+            }
+
+            <MudPaper Class="p-3 mt-3">
+                <MudGrid>
+                    <MudItem xs="12" md="3">
+                        <MudSelect Label="Tarih Sıralaması" @bind-Value="SelectedDateFilter">
+                            @foreach (var filter in DateFilters)
+                            {
+                                <MudSelectItem Value="@filter.Key">@filter.Value</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudSelect Label="Durum" @bind-Value="SelectedStatusFilter">
+                            <MudSelectItem Value="-1">Tümü</MudSelectItem>
+                            @foreach (var status in AvailableStatuses)
+                            {
+                                <MudSelectItem Value="@((int)Enum.Parse<ProjeDurumu>(status))">@status</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudSelect Label="Proje Yöneticisi" @bind-Value="SelectedManagerFilter">
+                            <MudSelectItem Value="0">Tümü</MudSelectItem>
+                            @foreach (var manager in ProjectManagers)
+                            {
+                                <MudSelectItem Value="@manager.UserID">@manager.Ad @manager.Soyad</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" md="3" Class="d-flex justify-end">
+                        <MudButton Variant=Variant.Outlined Color=Color.Secondary OnClick="ResetFilters">Filtreleri Sıfırla</MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            @if (IsLoading)
+            {
+                <MudProgressCircular Indeterminate="true" />
+                <p>Veriler yükleniyor...</p>
+            }
+            else
+            {
+                <MudTable Items="FilteredProjectList" Hover="true" Class="mt-4">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Proje Adı</MudTh>
+                        <MudTh>Başlangıç Tarihi</MudTh>
+                        <MudTh>Bitiş Tarihi</MudTh>
+                        <MudTh>Durum</MudTh>
+                        <MudTh>Aksiyon</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd>@context.ProjeID</MudTd>
+                        <MudTd>@context.ProjeAdi</MudTd>
+                        <MudTd>@context.BaslangicTarihi?.ToShortDateString()</MudTd>
+                        <MudTd>@context.BitisTarihi?.ToShortDateString()</MudTd>
+                        <MudTd>
+                            <MudChip T="string" Color="@GetStatusColor(context.Durum.ToString())">
+                                @context.Durum
+                            </MudChip>
+                        </MudTd>
+                        <MudTd>
+                            <MudButton Variant=Variant.Outlined Color="Color.Primary" OnClick="() => OpenProjectDialog(context)">
+                                Detay
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private int SelectedDateFilter = 0;
+    private int SelectedStatusFilter = -1;
+    private int SelectedManagerFilter = 0;
+
+    private List<Proje> ProjectList = new();
+    private List<Kullanici> ProjectManagers = new();
+    private HashSet<string> AvailableStatuses = new();
+    private string ErrorMessage = "";
+    private bool IsLoading = true;
+
+    private static readonly Dictionary<int, string> DateFilters = new()
+    {
+        { 0, "Tümü" },
+        { 1, "Yakın Tarihli" },
+        { 2, "Uzak Tarihli" }  
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+        await LoadProjectManagers();
+        ExtractStatuses();
+        IsLoading = false;
+    }
+
+    private async Task LoadProjects()
+    {
+        try
+        {
+            ProjectList = await DbContext.Projeler
+                .Include(p => p.Olusturan)
+                .AsNoTracking()
+                .ToListAsync();
+
+            ErrorMessage = "";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Projeler yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.";
+        }
+    }
+
+    private async Task LoadProjectManagers()
+    {
+        try
+        {
+            ProjectManagers = await DbContext.Projeler
+                .Where(p => p.Olusturan != null)
+                .Select(p => p.Olusturan!)
+                .Distinct()
+                .ToListAsync();
+
+            ErrorMessage = "";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Proje yöneticileri yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.";
+        }
+    }
+
+    private void ExtractStatuses()
+    {
+        AvailableStatuses = ProjectList.Select(p => p.Durum.ToString()).ToHashSet();
+    }
+
+    private List<Proje> FilteredProjectList => ProjectList
+        .Where(p =>
+            (SelectedStatusFilter == -1 || p.Durum == (ProjeDurumu)SelectedStatusFilter) &&
+            (SelectedManagerFilter == 0 || (p.Olusturan?.UserID == SelectedManagerFilter))
+        )
+        .OrderByDescending(p => SelectedDateFilter == 1 ? p.BaslangicTarihi?.Year : null)  // Önce yılı sırala (Yakın Tarihli)
+        .ThenByDescending(p => SelectedDateFilter == 1 ? p.BaslangicTarihi?.Month : null) // Aynı yıl içindeki ayı sırala
+        .ThenByDescending(p => SelectedDateFilter == 1 ? p.BaslangicTarihi?.Day : null)   // Aynı yıl ve ay içindeki günü sırala
+        .OrderBy(p => SelectedDateFilter == 2 ? p.BaslangicTarihi?.Year : null)  // Önce yılı sırala (Uzak Tarihli)
+        .ThenBy(p => SelectedDateFilter == 2 ? p.BaslangicTarihi?.Month : null) // Aynı yıl içindeki ayı sırala
+        .ThenBy(p => SelectedDateFilter == 2 ? p.BaslangicTarihi?.Day : null)   // Aynı yıl ve ay içindeki günü sırala
+        .ToList();
+
+    private void ResetFilters()
+    {
+        SelectedDateFilter = 0;
+        SelectedStatusFilter = -1;
+        SelectedManagerFilter = 0;
+    }
+
+    private Color GetStatusColor(string status) => status switch
+    {
+        "Planlama" => Color.Info,
+        "Gelistirme" => Color.Warning,
+        "Test" => Color.Primary,
+        "Yayinda" => Color.Success,
+        "Tamamlandi" => Color.Surface,
+        "IptalEdildi" => Color.Error,
+        _ => Color.Default
+    };
+
+
+    private async Task OpenProjectDialog(Proje project)
+    {
+        var parameters = new DialogParameters { { "Project", project } };
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+
+        await DialogService.ShowAsync<Dialog_ProjectDetail>($"{project.ProjeAdi}", parameters, options);
+    }
+
+}

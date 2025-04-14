@@ -1,0 +1,132 @@
+﻿@page "/new-project"
+@using CreateDocumentAPP_2.Entities.Model
+@using MudBlazor
+@using Microsoft.EntityFrameworkCore
+@inject ProjeDbContext DbContext
+@inject NavigationManager navManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<MudPaper Class="p-4">
+    <MudStepper Elevation="0" @bind-ActiveStepIndex="_activeStep">
+
+        <!-- Adım 1: Proje Bilgileri -->
+        <MudStep Label="Proje Bilgileri">
+            <MudTextField @bind-Value="Proje.ProjeAdi" Label="Proje Adı" Required="true" />
+            <MudTextField @bind-Value="Proje.Aciklama" Label="Açıklama" Lines="3" />
+            <MudDatePicker @bind-Date="Proje.BaslangicTarihi" Label="Başlangıç Tarihi" />
+            <MudDatePicker @bind-Date="Proje.BitisTarihi" Label="Bitiş Tarihi" />
+            <MudSelect T="ProjeDurumu" Label="Durum" @bind-Value="Proje.Durum">
+                <MudSelectItem Value="ProjeDurumu.Planlama">Planlama</MudSelectItem>
+                <MudSelectItem Value="ProjeDurumu.Gelistirme">Geliştirme</MudSelectItem>
+                <MudSelectItem Value="ProjeDurumu.Tamamlandi">Tamamlandı</MudSelectItem>
+            </MudSelect>
+            <MudSelect T="int?" Label="Kategori" @bind-Value="Proje.KategoriID">
+                @foreach (var kategori in Kategoriler)
+                {
+                    <MudSelectItem Value="@(kategori.KategoriID as int?)">@kategori.Ad</MudSelectItem>
+                }
+            </MudSelect>
+        </MudStep>
+
+        <!-- Adım 2: Proje Detayları -->
+        <MudStep Label="Proje Detayları">
+            <MudTextField @bind-Value="Detay.TeknikGereksinimler" Label="Teknik Gereksinimler" Lines="3" />
+            <MudTextField @bind-Value="Detay.FinansalBilgiler" Label="Finansal Bilgiler" Lines="3" />
+            <MudTextField @bind-Value="Detay.StratejikHedefler" Label="Stratejik Hedefler" Lines="3" />
+        </MudStep>
+
+        <!-- Adım 3: Proje Ekibi -->
+        <MudStep Label="Proje Ekibi">
+            <MudSelect T="int" Label="Kullanıcı Seçin" MultiSelection="true"
+                       SelectedValues="@SecilenKullanicilar"
+                       SelectedValuesChanged="@(values => SecilenKullanicilar = values.ToList())">
+                @foreach (var kullanici in SirketKullanicilari)
+                {
+                    <MudSelectItem Value="@kullanici.UserID">@kullanici.Ad @kullanici.Soyad</MudSelectItem>
+                }
+            </MudSelect>
+        </MudStep>
+
+        <!-- Adım 4: Onay ve Oluştur -->
+        <MudStep Label="Onay ve Oluştur">
+            <MudText Typo="Typo.h6">Girdiğiniz Bilgiler:</MudText>
+            <MudList T="object">
+                <MudListItem>Proje Adı: @Proje.ProjeAdi</MudListItem>
+                <MudListItem>Açıklama: @Proje.Aciklama</MudListItem>
+                <MudListItem>Başlangıç: @Proje.BaslangicTarihi?.ToShortDateString()</MudListItem>
+                <MudListItem>Bitiş: @Proje.BitisTarihi?.ToShortDateString()</MudListItem>
+                <MudListItem>Durum: @Proje.Durum.ToString()</MudListItem>
+                <MudListItem>Kategori: @(Kategoriler.FirstOrDefault(k => k.KategoriID == Proje.KategoriID)?.Ad)</MudListItem>
+                <MudListItem>Teknik Gereksinimler: @Detay.TeknikGereksinimler</MudListItem>
+                <MudListItem>Finansal Bilgiler: @Detay.FinansalBilgiler</MudListItem>
+                <MudListItem>Stratejik Hedefler: @Detay.StratejikHedefler</MudListItem>
+                <MudListItem>
+                    Seçilen Kullanıcılar: @(string.Join(", ", SecilenKullanicilar.Select(id =>
+                    {
+                        var kullanici = SirketKullanicilari.FirstOrDefault(k => k.UserID == id);
+                        return kullanici != null ? $"{kullanici.Ad} {kullanici.Soyad} ({kullanici.UserID})" : $"{id}";
+                    })))
+                </MudListItem>
+            </MudList>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="HandleCreate">Oluştur</MudButton>
+        </MudStep>
+    </MudStepper>
+</MudPaper>
+
+@code {
+    private int _activeStep = 0;
+    private Proje Proje = new();
+    private ProjeDetay Detay = new();
+    private List<ProjeKategori> Kategoriler = new();
+    private List<Kullanici> SirketKullanicilari = new();
+    private List<int> SecilenKullanicilar = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Kategoriler = await DbContext.ProjeKategorileri.ToListAsync();
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var email = authState.User.Identity?.Name;
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var currentUser = await DbContext.Kullanicilar.FirstOrDefaultAsync(k => k.Email == email);
+            if (currentUser != null)
+            {
+                Proje.OlusturanID = currentUser.UserID;
+                Proje.CompanyID = currentUser.CompanyID;
+
+                SirketKullanicilari = await DbContext.Kullanicilar
+                    .Where(k => k.CompanyID == currentUser.CompanyID && k.UserID != currentUser.UserID)
+                    .ToListAsync();
+            }
+        }
+    }
+
+    private async Task HandleCreate()
+    {
+        Detay.OlusturmaTarihi = DateTime.UtcNow;
+        Detay.SonGuncelleme = DateTime.UtcNow;
+
+        await DbContext.Projeler.AddAsync(Proje);
+        await DbContext.SaveChangesAsync();
+
+        Detay.ProjeID = Proje.ProjeID;
+        await DbContext.ProjeDetaylari.AddAsync(Detay);
+
+        foreach (var userId in SecilenKullanicilar)
+        {
+            var uye = new ProjeTakim
+                {
+                    ProjeID = Proje.ProjeID,
+                    UserID = userId,
+                    AtanmaTarihi = DateTime.UtcNow
+                };
+            await DbContext.ProjeTakimlari.AddAsync(uye);
+        }
+
+        await DbContext.SaveChangesAsync();
+        navManager.NavigateTo("/projects");
+    }
+}

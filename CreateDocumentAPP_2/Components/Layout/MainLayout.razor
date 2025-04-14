@@ -1,0 +1,87 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject CustomAuthStateProvider AuthStateProvider
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
+
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(Program).Assembly">
+        <Found Context="routeData">
+            @if (Navigation.Uri == Navigation.BaseUri)
+            {
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(BaseLayout)" />
+            }
+            else
+            {
+                <AuthorizeView>
+                    <Authorized>
+                        <div class="layout-container">
+                            <!-- Sidebar -->
+                            <div>
+                                <NavMenu />
+                            </div>
+
+                            <!-- Main Content -->
+                            <div class="main-content" style="margin-top:50px">
+                                <article class="content px-4">
+                                    @Body
+                                </article>
+                            </div>
+                        </div>
+                    </Authorized>
+                    <NotAuthorized>
+                        <h3>Erişim Engellendi!</h3>
+                        <p>Bu sayfayı görmek için giriş yapmalısınız.</p>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoToLogin">Giriş Yap</MudButton>
+                    </NotAuthorized>
+                </AuthorizeView>
+            }
+        </Found>
+        <NotFound>
+            <LayoutView Layout="@typeof(BaseLayout)">
+                <MudAlert Severity="Severity.Warning">Sayfa bulunamadı!</MudAlert>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+
+
+<style>
+    .layout-container {
+        display: flex;
+        height: 100vh;
+    }
+
+    .sidebar {
+        width: 250px;
+        background-color: #f8f9fa;
+        padding: 15px;
+    }
+
+    .main-content {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+</style>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await AuthStateProvider.LoadUserFromSessionAsync();
+        }
+    }
+
+    private void GoToLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+}

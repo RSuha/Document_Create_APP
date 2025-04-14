@@ -1,0 +1,21 @@
+﻿@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6">@ContentText</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Confirm" Color="Color.Error">Evet</MudButton>
+        <MudButton OnClick="Cancel" Color="Color.Default">Hayır</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public string ContentText { get; set; } = "Bu işlemi onaylıyor musunuz?";
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; }
+
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(true));
+    private void Cancel() => MudDialog.Close(DialogResult.Cancel());
+
+    private void CloseAllDialogs() => MudDialog.CancelAll();
+}

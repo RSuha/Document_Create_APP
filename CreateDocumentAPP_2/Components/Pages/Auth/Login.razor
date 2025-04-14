@@ -1,0 +1,191 @@
+﻿@page "/login"
+@layout BaseLayout
+@inject NavigationManager Navigation
+@inject AuthenticationService AuthService
+
+<div class="login-container">
+    <div class="login-box">
+        <div class="login-form">
+            <h2>Sign In</h2>
+            <p>Let's build something great</p>
+
+            <form>
+                <label for="email">E-mail or phone number</label>
+                <input type="email" id="email" placeholder="Enter your email" @bind="Email" required>
+
+                <label for="password">Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="password" placeholder="Enter your password" @bind="Password" required>
+                    <span class="toggle-password" onclick="togglePasswordVisibility()">
+                        <span id="eye-icon">👁️</span>
+                    </span>
+                </div>
+
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <p class="error-message">@ErrorMessage</p>
+                }
+
+                <button type="button" class="login-btn" @onclick="PerformLogin">Login</button>
+                <button type="button" class="login-btn" @onclick="GoToChangePassword">Change Password</button>
+
+            </form>
+        </div>
+
+        <div class="login-image">
+            <img src="https://img.freepik.com/free-vector/geometric-gradient-futuristic-background_23-2149116406.jpg" alt="Login Background">
+        </div>
+    </div>
+</div>
+
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #798189;
+    }
+
+    .login-container {
+        width: 80%;
+        height: 50%;
+        max-width: 1000px;
+        background: white;
+        border-radius: 20px;
+        display: flex;
+        overflow: hidden;
+        box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .login-box {
+        display: flex;
+        width: 100%;
+    }
+
+    .login-form {
+        width: 50%;
+        padding: 40px;
+        background: #f0f0f0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+        .login-form h2 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .login-form p {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .login-form label {
+            font-weight: bold;
+            margin-top: 15px;
+            display: block;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+
+    .password-wrapper {
+        position: relative;
+    }
+
+        .password-wrapper .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+    .login-btn {
+        width: 47%;
+        padding: 12px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        margin-top: 20px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+        .login-btn:hover {
+            background: #0056b3;
+        }
+
+    .error-message {
+        color: red;
+        font-size: 14px;
+        margin-top: 10px;
+    }
+
+    .login-image {
+        height: 100%;
+        width: 50%;
+        background: black;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+        .login-image img {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+        }
+</style>
+
+<script>
+    function togglePasswordVisibility() {
+        var passwordField = document.getElementById("password");
+        var eyeIcon = document.getElementById("eye-icon");
+
+        if (passwordField.type === "password") {
+            passwordField.type = "text";
+            eyeIcon.textContent = "👀"; // Şifre gösteriliyorsa kapalı göz ikonu
+        } else {
+            passwordField.type = "password";
+            eyeIcon.textContent = "👁️"; // Şifre gizliyse açık göz ikonu
+        }
+    }
+</script>
+
+@code {
+    private string Email = "";
+    private string Password = "";
+    private string ErrorMessage = "";
+
+    private async Task PerformLogin()
+    {
+        bool loginSuccess = await AuthService.Login(Email, Password);
+
+        if (loginSuccess)
+        {
+            Navigation.NavigateTo("/default-home");
+        }
+        else
+        {
+            ErrorMessage = "Geçersiz e-posta veya şifre.";
+        }
+    }
+
+    private void GoToChangePassword()
+    {
+        Navigation.NavigateTo("/change-password");
+    }
+}

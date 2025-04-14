@@ -1,0 +1,152 @@
+﻿@page "/create-user"
+
+@inject NavigationManager Navigation
+@inject ProjeDbContext DbContext
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudContainer Class="create-user-container">
+    <MudCard Elevation="3" Class="create-user-card">
+        <MudCardContent>
+            <MudTypography Variant="H4" Class="mb-3">Yeni Kullanıcı Ekle</MudTypography>
+
+            <MudForm>
+                <MudTextField Id="firstName" Label="Ad" @bind-Value="UserFirstName" Required="true" FullWidth="true" />
+                <MudTextField Id="lastName" Label="Soyad" @bind-Value="UserLastName" Required="true" FullWidth="true" />
+                <MudTextField Id="email" Label="E-Posta" @bind-Value="UserEmail" Required="true" Type="email" FullWidth="true" autocomplete="email" />
+
+                <MudSelect T="UserTitle" Id="title" Label="Unvan Seçin" @bind-Value="SelectedTitle" Required="true" FullWidth="true">
+                    @foreach (var title in Enum.GetValues<UserTitle>())
+                    {
+                        <MudSelectItem T="UserTitle" Value="@title">@title</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="KullaniciRol" Id="role" Label="Rol Seçin" @bind-Value="SelectedRole" Required="true" FullWidth="true">
+                    @foreach (var role in Enum.GetValues<KullaniciRol>())
+                    {
+                        <MudSelectItem T="KullaniciRol" Value="@role">@role</MudSelectItem>
+                    }
+                </MudSelect>
+
+                @if (Departmanlar != null && Departmanlar.Any())
+                {
+                    <MudSelect T="int?" Id="department" Label="Departman Seçin" @bind-Value="SelectedDepartmanId" Required="true" FullWidth="true">
+                        @foreach (var dep in Departmanlar)
+                        {
+                            <MudSelectItem T="int?" Value="@dep.DepartmanID">@dep.Ad</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenPreviewDialog" FullWidth="true" Class="mt-3">
+                    Kullanıcıyı Önizle
+                </MudButton>
+            </MudForm>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    private string UserFirstName = "";
+    private string UserLastName = "";
+    private string UserEmail = "";
+    private KullaniciRol SelectedRole;
+    private UserTitle SelectedTitle;
+    private int? SelectedDepartmanId;
+
+    private List<Departman> Departmanlar = new();
+
+    private Kullanici? CurrentUser; // ✅ Eklenen kullanıcıyı saklayacağımız yer
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var email = authState.User.Identity?.Name;
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            CurrentUser = await DbContext.Kullanicilar
+                .Include(k => k.Company)
+                .FirstOrDefaultAsync(k => k.Email == email);
+
+            if (CurrentUser?.CompanyID != null)
+            {
+                Departmanlar = await DbContext.Departmanlar
+                    .Where(d => d.CompanyID == CurrentUser.CompanyID)
+                    .ToListAsync();
+            }
+        }
+    }
+
+    private async Task OpenPreviewDialog()
+    {
+        if (string.IsNullOrWhiteSpace(UserFirstName) ||
+            string.IsNullOrWhiteSpace(UserLastName) ||
+            string.IsNullOrWhiteSpace(UserEmail) ||
+            SelectedDepartmanId == null)
+        {
+            Snackbar.Add("⚠️ HATA: Zorunlu alanlar boş bırakıldı!", Severity.Error);
+            return;
+        }
+
+        var secilenDepartmanAdi = Departmanlar.FirstOrDefault(d => d.DepartmanID == SelectedDepartmanId)?.Ad ?? "Belirtilmemiş";
+
+        var parameters = new DialogParameters
+        {
+            { "UserFirstName", UserFirstName },
+            { "UserLastName", UserLastName },
+            { "UserEmail", UserEmail },
+            { "UserRole", SelectedRole },
+            { "UserTitle", SelectedTitle },
+            { "DepartmanAdi", secilenDepartmanAdi }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            CloseButton = true,
+            BackdropClick = true
+        };
+
+        var dialog = await DialogService.ShowAsync<Dialog_PreviewUser>("Kullanıcı Önizleme", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await SaveUser();
+        }
+    }
+
+    async Task SaveUser()
+    {
+        var existingUser = await DbContext.Kullanicilar.FirstOrDefaultAsync(k => k.Email == UserEmail);
+        if (existingUser != null)
+        {
+            Snackbar.Add("❗ Bu e-posta adresi zaten kayıtlı.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("📢 Kullanıcı Kaydediliyor...", Severity.Info);
+
+        var newUser = new Kullanici
+        {
+            Ad = UserFirstName,
+            Soyad = UserLastName,
+            Email = UserEmail,
+            Rol = SelectedRole,
+            Title = SelectedTitle,
+            DepartmanID = SelectedDepartmanId,
+            CompanyID = CurrentUser?.CompanyID, 
+            SifreHash = $"{UserFirstName.ToLower()}{UserLastName.ToLower()}_1234",
+            OlusturmaTarihi = DateTime.UtcNow
+        };
+
+        await DbContext.Kullanicilar.AddAsync(newUser);
+        await DbContext.SaveChangesAsync();
+
+        Snackbar.Add($"✅ Kullanıcı Başarıyla Kaydedildi: {newUser.Ad} {newUser.Soyad}", Severity.Success);
+        Navigation.NavigateTo("/user-list");
+    }
+}

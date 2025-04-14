@@ -1,0 +1,42 @@
+﻿@page "/"
+@inject NavigationManager Navigation
+
+
+<PageTitle>Home</PageTitle>
+
+
+
+<MudContainer Class="home-container">
+    <MudCard Elevation="3" Class="home-card">
+        <MudCardContent>
+            <h3>Welcome to your new app.!</h3>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoToLogin" Class="mt-3">
+                <MudIcon Icon="mdi-login" Class="mr-1" /> Giriş Yap
+            </MudButton>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+<style>
+    .home-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+    }
+
+    .home-card {
+        text-align: center;
+        padding: 30px;
+        border-radius: 10px;
+        max-width: 400px;
+    }
+</style>
+
+@code {
+    private void GoToLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+}

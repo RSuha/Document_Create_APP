@@ -1,0 +1,150 @@
+﻿@inject ProjeDbContext DbContext
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+
+        <MudText Typo="Typo.h5" Class="mb-4">
+            👥 '@Departman.Ad' Departmanına Kullanıcı Ata
+        </MudText>
+
+        <MudGrid Class="mb-3" GutterSize="3">
+            <MudItem xs="6">
+                <MudSelect T="KullaniciRol?" Label="Rol Filtrele" @bind-Value="_selectedRole" Clearable="true" FullWidth="true">
+                    @foreach (var role in Enum.GetValues<KullaniciRol>())
+                    {
+                        <MudSelectItem Value="@(new KullaniciRol?(role))">@role</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6">
+                <MudSelect T="UserTitle?" Label="Ünvan Filtrele" @bind-Value="_selectedTitle" Clearable="true" FullWidth="true">
+                    @foreach (var title in Enum.GetValues<UserTitle>())
+                    {
+                        <MudSelectItem Value="@(new UserTitle?(title))">@title</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        @if (_filteredUsers.Any())
+        {
+            <MudTable RowClassFunc="@SelectedRowStyles" Items="_filteredUsers" Dense="true" Hover="true" Bordered="true" Striped="true">
+                <HeaderContent>
+                    <MudTh>Ad</MudTh>
+                    <MudTh>Soyad</MudTh>
+                    <MudTh>Rol</MudTh>
+                    <MudTh>Ünvan</MudTh>
+                    <MudTh>Departman</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate >
+                    <MudTd>@context.Ad</MudTd>
+                    <MudTd>@context.Soyad</MudTd>
+                    <MudTd>@context.Rol</MudTd>
+                    <MudTd>@context.Title</MudTd>
+                    <MudTd>@(_departmanlar.FirstOrDefault(d => d.DepartmanID == context.DepartmanID)?.Ad ?? "-")</MudTd>
+                    <MudTd>
+                        <MudButton Variant="Variant.Filled"
+                        Color="Color.Primary"
+                        OnClick="() => SelectUser(context)">
+                            Seç
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+        else
+        {
+            <MudText Color="Color.Secondary">⚠️ Uygun kullanıcı bulunamadı.</MudText>
+        }
+
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="AssignUser" Disabled="_selectedUser == null" Color="Color.Primary" Variant="Variant.Filled">
+            Onayla
+        </MudButton>
+        <MudButton OnClick="Cancel" Color="Color.Default" Variant="Variant.Outlined">İptal</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .selected-row {
+    background-color: #e3f2fd !important;
+    box-shadow: inset 4px 0 0 #1976d2;
+    transition: background-color 0.2s ease;
+    }
+</style>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public Departman Departman { get; set; } = default!;
+    [Parameter] public int CompanyId { get; set; }
+
+    private Kullanici? _selectedUser;
+    private int? _selectedUserId => _selectedUser?.UserID;
+
+    private KullaniciRol? _selectedRole;
+    private UserTitle? _selectedTitle;
+
+    private List<Kullanici> _availableUsers = new();
+    private List<Departman> _departmanlar = new();
+
+    private IEnumerable<Kullanici> _filteredUsers =>
+        _availableUsers
+            .Where(u =>
+                (!_selectedRole.HasValue || u.Rol == _selectedRole) &&
+                (!_selectedTitle.HasValue || u.Title == _selectedTitle)
+            );
+
+        private string SelectedRowStyles(Kullanici item, int index)
+        {
+            if (_selectedUser == item)
+            {
+            return "selected-row";
+            }
+            else
+            {
+                return "";
+            }
+        }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var users = await DbContext.Kullanicilar
+            .Where(k => k.CompanyID == CompanyId && (k.DepartmanID != Departman.DepartmanID || k.DepartmanID == null))
+            .ToListAsync();
+
+        _availableUsers = users;
+
+        _departmanlar = await DbContext.Departmanlar
+            .Where(d => d.CompanyID == CompanyId)
+            .ToListAsync();
+    }
+
+    private void SelectUser(Kullanici user)
+    {
+        _selectedUser = user;
+    }
+
+    private async Task AssignUser()
+    {
+        if (_selectedUser != null)
+        {
+            _selectedUser.DepartmanID = Departman.DepartmanID;
+
+            DbContext.Kullanicilar.Update(_selectedUser);
+            await DbContext.SaveChangesAsync();
+
+            Snackbar.Add($"✅ {_selectedUser.Ad} {_selectedUser.Soyad} başarıyla atanmıştır.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}
+

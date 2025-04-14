@@ -1,0 +1,25 @@
+﻿<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6" Class="mb-3">Yeni Departman Bilgileri</MudText>
+
+        <MudPaper Class="pa-4 mb-2">
+            <strong>Şirket:</strong> @CompanyName
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-2">
+            <strong>Departman Adı:</strong> @PreviewDepartment.Ad
+        </MudPaper>
+
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="() => MudDialog.Close(DialogResult.Ok(true))">Onayla</MudButton>
+        <MudButton Color="Color.Secondary" OnClick="() => MudDialog.Cancel()">İptal</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public Departman PreviewDepartment { get; set; } = new();
+    [Parameter] public string CompanyName { get; set; } = "Bilinmiyor";
+}

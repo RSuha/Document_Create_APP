@@ -1,0 +1,59 @@
+﻿<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h5" Class="mb-4">Kullanıcı Bilgileri</MudText>
+
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="pa-4 mb-2">
+                    <strong>Ad:</strong> @UserFirstName
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="pa-4 mb-2">
+                    <strong>Soyad:</strong> @UserLastName
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="pa-4 mb-2">
+                    <strong>E-Posta:</strong> @UserEmail
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="pa-4 mb-2">
+                    <strong>Rol:</strong> @UserRole
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="pa-4 mb-2">
+                    <strong>Unvan:</strong> @UserTitle
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="pa-4 mb-2">
+                    <strong>Departman:</strong> @DepartmanAdi
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="() => MudDialog.Close(DialogResult.Ok(true))">Onayla</MudButton>
+        <MudButton Color="Color.Secondary" OnClick="() => MudDialog.Cancel()">İptal</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string UserFirstName { get; set; } = string.Empty;
+    [Parameter] public string UserLastName { get; set; } = string.Empty;
+    [Parameter] public string UserEmail { get; set; } = string.Empty;
+    [Parameter] public KullaniciRol UserRole { get; set; }
+    [Parameter] public UserTitle UserTitle { get; set; }
+    [Parameter] public string DepartmanAdi { get; set; } = "Belirtilmemiş";
+}

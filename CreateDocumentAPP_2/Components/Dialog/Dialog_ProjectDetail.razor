@@ -1,0 +1,118 @@
+﻿@inject ProjeDbContext DbContext
+@inject NavigationManager Navigation
+
+<MudDialog Class="Dialog" MaxWidth="MaxWidth.Large" FullWidth="true">
+    <TitleContent>
+        @Project.ProjeAdi
+    </TitleContent>
+    <DialogContent>
+        <MudForm>
+            <MudTextField Label="Proje Adı" @bind-Value="Project.ProjeAdi" Disabled="@IsReadOnly" FullWidth="true" />
+
+            @if (IsReadOnly)
+            {
+                <MudTextField Label="Durum" Value="@Project.Durum.ToString()" Disabled="true" FullWidth="true" />
+            }
+            else
+            {
+                <MudSelect Label="Durum" @bind-Value="Project.Durum" FullWidth="true">
+                    @foreach (var status in Enum.GetValues<ProjeDurumu>())
+                    {
+                        <MudSelectItem Value="@status">@status.ToString()</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+
+            <MudDivider Class="mt-3 mb-3" />
+
+            <MudText Variant="H6">Projede Yer Alan Kullanıcılar</MudText>
+
+            @if (ProjectUsers.Any())
+            {
+                <MudTable Hover="true" Striped="true" Items="@ProjectUsers">
+                    <HeaderContent>
+                        <MudTh>Ad Soyad</MudTh>
+                        <MudTh>E-Posta</MudTh>
+                        <MudTh>Unvan</MudTh> <!-- Güncellendi -->
+                    </HeaderContent>
+                    <RowTemplate Context="user">
+                        <MudTd>@user.Kullanici.Ad @user.Kullanici.Soyad</MudTd>
+                        <MudTd>@user.Kullanici.Email</MudTd>
+                        <MudTd>@user.Kullanici.Title</MudTd> <!-- @user.Rol yerine güncellendi -->
+                    </RowTemplate>
+                </MudTable>
+            }
+            else
+            {
+                <MudText>Bu projede henüz kullanıcı bulunmamaktadır.</MudText>
+            }
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="ToggleEditMode">@EditButtonText</MudButton>
+        <MudButton OnClick="GoToDetail">Detaylar</MudButton>
+        <MudButton OnClick="Cancel">Kapat</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .Dialog {
+        width: 1000px;
+    }
+</style>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public Proje Project { get; set; } = default!;
+
+    private List<ProjeTakim> ProjectUsers = new();
+    private bool IsReadOnly = true;
+    private string EditButtonText = "Düzenle";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjectUsers();
+    }
+
+    private async Task LoadProjectUsers()
+    {
+        try
+        {
+            ProjectUsers = await DbContext.ProjeTakimlari
+                .Where(pt => pt.ProjeID == Project.ProjeID)
+                .Include(pt => pt.Kullanici)
+                .ToListAsync();
+        }
+        catch
+        {
+            ProjectUsers = new List<ProjeTakim>();
+        }
+    }
+
+    private async Task ToggleEditMode()
+    {
+        if (IsReadOnly)
+        {
+            IsReadOnly = false;
+            EditButtonText = "Kaydet";
+        }
+        else
+        {
+            try
+            {
+                DbContext.Projeler.Update(Project);
+                await DbContext.SaveChangesAsync();
+                EditButtonText = "Düzenle";
+                IsReadOnly = true;
+            }
+            catch
+            {
+                EditButtonText = "Kaydet";
+            }
+        }
+    }
+
+    private void GoToDetail() => Navigation.NavigateTo($"/project-detail/{Project.ProjeID}");
+
+    private void Cancel() => MudDialog.Cancel();
+}

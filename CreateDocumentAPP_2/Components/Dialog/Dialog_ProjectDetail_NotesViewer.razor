@@ -1,0 +1,162 @@
+﻿@using CreateDocumentAPP_2.Entities.Model
+@using Microsoft.AspNetCore.Components.Forms
+@inject ProjeDbContext Db
+@inject IWebHostEnvironment Env
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6" Class="mb-3">@DialogBaslik</MudText>
+
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.AddComment" Color="Color.Secondary" OnClick="ToggleYeniNotEkle">
+            Yeni Not Ekle
+        </MudButton>
+
+        @if (YeniNotEkleAktif)
+        {
+            <MudPaper Class="p-4 mt-3" Elevation="1">
+                <MudTextField Label="Yeni Not" @bind-Value="YeniNot" Variant="Variant.Outlined" Lines="3" FullWidth Class="mb-3" />
+
+                <MudText Typo="Typo.body2" Class="mb-1">Görsel Seç:</MudText>
+                <MudPaper Class="d-flex align-center mb-2">
+                    <InputFile OnChange="OnInputFileChange" MaxFileSize="10485760" />
+                </MudPaper>
+
+                @if (!string.IsNullOrEmpty(GorselOnizlemeUrl))
+                {
+                    <MudImage Src="@GorselOnizlemeUrl" Width="150" Class="mb-3 rounded" />
+                }
+
+                <MudButton Color="Color.Success" Variant="Variant.Filled" OnClick="Ekle">Kaydet</MudButton>
+            </MudPaper>
+        }
+
+
+        <MudDivider Class="my-3" />
+
+
+
+        @if (Notlar == null || Notlar.Count == 0)
+        {
+            <MudText>Bu gereksinim için not bulunmamaktadır.</MudText>
+        }
+        else
+        {
+            <MudList T="object" Dense="true">
+                @foreach (var not in Notlar)
+                {
+                    <MudListItem>
+                        <MudListItemText>
+                            <MudText Class="mb-1">@not.Icerik</MudText>
+                            @if (!string.IsNullOrWhiteSpace(not.IlgiliGorselUrl))
+                            {
+                                <img src="@($"/{not.IlgiliGorselUrl}")" @onclick="@(args => ShowImage($"/{not.IlgiliGorselUrl}"))" style="width:200px; margin-top: 8px; cursor:pointer" />
+                            }
+                        </MudListItemText>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+
+        <MudDivider Class="my-3" />
+
+
+        @if (!string.IsNullOrEmpty(HataMesaji))
+        {
+            <MudAlert Severity="Severity.Error" Elevation="0">@HataMesaji</MudAlert>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Close" Color="Color.Primary">Kapat</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public string DialogBaslik { get; set; } = "Gereksinim Notları";
+    [Parameter] public List<GereksinimNotu> Notlar { get; set; } = new();
+    [Parameter] public int? FonksiyonelGereksinimID { get; set; }
+    [Parameter] public int? TeknikGereksinimID { get; set; }
+
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string? YeniNot { get; set; }
+    private IBrowserFile? YuklenenGorsel { get; set; }
+    private string? GorselOnizlemeUrl { get; set; }
+    private bool YeniNotEkleAktif { get; set; } = false;
+    private string? YuklenenGorselRelativePath { get; set; }
+    private string? HataMesaji { get; set; }
+
+    void ToggleYeniNotEkle() => YeniNotEkleAktif = !YeniNotEkleAktif;
+
+    void Close() => MudDialog?.Close(DialogResult.Ok(true));
+
+    async Task OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            YuklenenGorsel = e.File;
+            var uploadsFolder = Path.Combine(Env.WebRootPath, "uploads");
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            var uniqueFileName = $"{Guid.NewGuid()}_{YuklenenGorsel.Name}";
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            await using var stream = new FileStream(filePath, FileMode.Create);
+            await YuklenenGorsel.OpenReadStream(10 * 1024 * 1024).CopyToAsync(stream);
+
+            YuklenenGorselRelativePath = $"uploads/{uniqueFileName}";
+            GorselOnizlemeUrl = $"/{YuklenenGorselRelativePath}";
+            HataMesaji = null;
+        }
+        catch (IOException ioEx)
+        {
+            HataMesaji = "⚠ Dosya boyutu 10MB'den büyük olamaz.";
+        }
+        catch (Exception ex)
+        {
+            HataMesaji = $"Bir hata oluştu: {ex.Message}";
+        }
+    }
+
+    async Task Ekle()
+    {
+        if (!string.IsNullOrWhiteSpace(YeniNot))
+        {
+            if (YuklenenGorsel != null && string.IsNullOrWhiteSpace(YuklenenGorselRelativePath))
+            {
+                var dummyChangeArgs = new InputFileChangeEventArgs(new[] { YuklenenGorsel });
+                await OnInputFileChange(dummyChangeArgs);
+            }
+
+            var yeniNot = new GereksinimNotu
+            {
+                Icerik = YeniNot,
+                IlgiliGorselUrl = YuklenenGorselRelativePath,
+                FonksiyonelGereksinimID = FonksiyonelGereksinimID,
+                TeknikGereksinimID = TeknikGereksinimID
+            };
+
+            Notlar.Add(yeniNot);
+
+            Db.GereksinimNotlari.Add(yeniNot);
+            await Db.SaveChangesAsync();
+
+            YeniNot = null;
+            YuklenenGorsel = null;
+            GorselOnizlemeUrl = null;
+            YuklenenGorselRelativePath = null;
+            YeniNotEkleAktif = false;
+        }
+    }
+
+    void ShowImage(string? url)
+    {
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            DialogService.Show<Dialog_ShowImage>("Görsel", new DialogParameters { ["ImageUrl"] = url });
+        }
+    }
+}

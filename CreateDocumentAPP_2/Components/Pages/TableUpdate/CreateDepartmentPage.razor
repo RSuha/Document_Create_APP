@@ -1,0 +1,107 @@
+﻿@page "/create-department"
+@inject ProjeDbContext DbContext
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudContainer Class="DepartmanConteiner">
+    <MudPaper Class="pa-6">
+        <MudText Typo="Typo.h5" Class="mb-4">Yeni Departman Oluştur</MudText>
+
+        <MudTextField Label="Departman Adı" @bind-Value="DepartmanAdi" Required="true" FullWidth="true" />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="OpenPreviewDialog">
+            Departmanı Önizle
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+
+<style>
+    .DepartmanConteiner {
+        Margin-left:20px;
+        padding: 10px;
+    }
+</style>
+
+
+@code {
+    private string DepartmanAdi = string.Empty;
+    private Kullanici? CurrentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var email = authState.User.Identity?.Name;
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            CurrentUser = await DbContext.Kullanicilar.Include(k => k.Company).FirstOrDefaultAsync(k => k.Email == email);
+        }
+    }
+
+    private async Task OpenPreviewDialog()
+    {
+        if (string.IsNullOrWhiteSpace(DepartmanAdi))
+        {
+            Snackbar.Add("Departman adı boş olamaz!", Severity.Error);
+            return;
+        }
+
+        var yeniDepartman = new Departman
+            {
+                Ad = DepartmanAdi,
+                CompanyID = CurrentUser?.CompanyID ?? 0
+            };
+
+        var parameters = new DialogParameters
+        {
+            { "PreviewDepartment", yeniDepartman },
+            { "CompanyName", CurrentUser?.Company?.Ad ?? "Bilinmiyor" }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+
+        var dialog = await DialogService.ShowAsync<Dialog_PreviewDepartment>("Departman Önizleme", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await SaveDepartment();
+        }
+    }
+
+    private async Task SaveDepartment()
+    {
+        var companyId = CurrentUser?.CompanyID;
+        if (companyId == null)
+        {
+            Snackbar.Add("⚠️ Giriş yapan kullanıcının şirketi bulunamadı!", Severity.Error);
+            return;
+        }
+
+        var mevcut = await DbContext.Departmanlar.FirstOrDefaultAsync(d =>
+            d.Ad == DepartmanAdi && d.CompanyID == companyId);
+
+        if (mevcut != null)
+        {
+            Snackbar.Add("⚠️ Bu isimde bir departman zaten var.", Severity.Warning);
+            return;
+        }
+
+        var yeniDepartman = new Departman
+            {
+                Ad = DepartmanAdi,
+                CompanyID = companyId.Value
+            };
+
+        await DbContext.Departmanlar.AddAsync(yeniDepartman);
+        await DbContext.SaveChangesAsync();
+
+        Snackbar.Add("✅ Departman başarıyla oluşturuldu!", Severity.Success);
+        Navigation.NavigateTo("/assigment-list");
+    }
+
+}
