@@ -1,0 +1,52 @@
+﻿@using CreateDocumentAPP_2.Entities.Model
+@inject ProjeDbContext Db
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6">Bu öğeyi silmek istediğinizden emin misiniz?</MudText>
+
+        @if (Entity is FinansalBilgi fb)
+        {
+            <MudText><b>İlgili İş:</b> @fb.IlgiliIs</MudText>
+            <MudText><b>Bütçe:</b> @fb.AyrilanButce</MudText>
+        }
+        else if (Entity is TeknikGereksinim tg)
+        {
+            <MudText><b>Teknik Gereksinim:</b> @tg.Gereksinim</MudText>
+        }
+        else if (Entity is FonksiyonelGereksinim fg)
+        {
+            <MudText><b>Fonksiyonel Gereklilik:</b> @fg.Gereklilik</MudText>
+        }
+        else if (Entity is ProjeDiyagram pd)
+        {
+            <MudText><b>Diyagram Adı:</b> @pd.DiyagramAdi</MudText>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Sil" Color="Color.Error">Sil</MudButton>
+        <MudButton OnClick="MudDialog.Cancel" Color="Color.Default">İptal</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public object Entity { get; set; }
+
+    private async Task Sil()
+    {
+        if (Entity is FinansalBilgi fb)
+            Db.FinansalBilgiler.Remove(fb);
+        else if (Entity is TeknikGereksinim tg)
+            Db.TeknikGereksinimler.Remove(tg);
+        else if (Entity is FonksiyonelGereksinim fg)
+            Db.FonksiyonelGereksinimler.Remove(fg);
+        else if (Entity is ProjeDiyagram pd)
+            Db.ProjeDiyagramlari.Remove(pd);
+
+        await Db.SaveChangesAsync();
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+}

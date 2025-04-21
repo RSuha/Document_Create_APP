@@ -70,7 +70,6 @@
 </MudDialog>
 
 <style>
-    /* Seçili satıra özel stil */
     .selected-row {
         background-color: #e3f2fd !important;
         box-shadow: inset 4px 0 0 #1976d2 !important;
@@ -144,13 +143,12 @@
         MudDialog.Cancel();
     }
 
-    // Seçili satıra özel CSS atanmasını sağlar
     private string SelectedRowStyles(Kullanici item, int index)
     {
         if (_selectedUser == item)
         {
-            return "selected-row"; // Seçilen satıra class ata
+            return "selected-row";
         }
-        return string.Empty; // Seçilmezse boş class dön
+        return string.Empty;
     }
 }

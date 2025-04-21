@@ -1,0 +1,143 @@
+﻿@using CreateDocumentAPP_2.Entities.Model
+@using Microsoft.AspNetCore.Components.Forms
+@inject IDialogService DialogService
+@inject ProjeDbContext Db
+@inject IWebHostEnvironment Env
+@inherits ComponentBase
+
+<MudDialog>
+    <DialogContent>
+        @if (EntityType == nameof(FinansalBilgi))
+        {
+            <MudText Typo="Typo.h6">@(IsEditMode ? "Finansal Bilgi Düzenle" : "Yeni Finansal Bilgi")</MudText>
+            <MudTextField Label="Ayrılan Bütçe" @bind-Value="finansalBilgi.AyrilanButce" />
+            <MudTextField Label="İlgili İş" @bind-Value="finansalBilgi.IlgiliIs" />
+        }
+        else if (EntityType == nameof(TeknikGereksinim))
+        {
+            <MudText Typo="Typo.h6">@(IsEditMode ? "Teknik Gereksinim Düzenle" : "Yeni Teknik Gereksinim")</MudText>
+            <MudTextField Label="Gereksinim" @bind-Value="teknikGereksinim.Gereksinim" />
+        }
+        else if (EntityType == nameof(FonksiyonelGereksinim))
+        {
+            <MudText Typo="Typo.h6">@(IsEditMode ? "Fonksiyonel Gereksinim Düzenle" : "Yeni Fonksiyonel Gereksinim")</MudText>
+            <MudTextField Label="Gereklilik" @bind-Value="fonksiyonelGereksinim.Gereklilik" />
+            <MudTextField Label="Açıklama" @bind-Value="fonksiyonelGereksinim.Aciklama" />
+            <MudSelect T="int" Label="Önem" @bind-Value="seciliOnem">
+                <MudSelectItem Value="0">Düşük</MudSelectItem>
+                <MudSelectItem Value="1">Orta</MudSelectItem>
+                <MudSelectItem Value="2">Yüksek</MudSelectItem>
+            </MudSelect>
+        }
+        else if (EntityType == nameof(ProjeDiyagram))
+        {
+            <MudText Typo="Typo.h6">@(IsEditMode ? "Proje Diyagramı Düzenle" : "Yeni Proje Diyagramı")</MudText>
+            <MudTextField Label="Diyagram Adı" @bind-Value="projeDiyagram.DiyagramAdi" />
+            <InputFile OnChange="OnInputFileChanged" />
+            @if (!string.IsNullOrWhiteSpace(projeDiyagram.DiyagramUrl))
+            {
+                <img src="@($"/{projeDiyagram.DiyagramUrl}")" style="max-width: 100%; max-height: 200px; margin-top: 10px;" />
+            }
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Kaydet" Color="Color.Primary">Kaydet</MudButton>
+        <MudButton OnClick="MudDialog.Cancel" Color="Color.Secondary">İptal</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public string EntityType { get; set; }
+    [Parameter] public int ProjeID { get; set; }
+    [Parameter] public int? EntityId { get; set; }
+    [Parameter] public object? Entity { get; set; }
+
+    FinansalBilgi finansalBilgi = new();
+    TeknikGereksinim teknikGereksinim = new();
+    FonksiyonelGereksinim fonksiyonelGereksinim = new();
+    ProjeDiyagram projeDiyagram = new();
+
+    bool IsEditMode => Entity != null;
+    int seciliOnem;
+
+    protected override void OnInitialized()
+    {
+        if (EntityType == nameof(FinansalBilgi) && Entity is FinansalBilgi fb)
+        {
+            finansalBilgi = fb;
+        }
+        else if (EntityType == nameof(TeknikGereksinim) && Entity is TeknikGereksinim tg)
+        {
+            teknikGereksinim = tg;
+        }
+        else if (EntityType == nameof(FonksiyonelGereksinim) && Entity is FonksiyonelGereksinim fg)
+        {
+            fonksiyonelGereksinim = fg;
+            seciliOnem = fg.Onem switch
+            {
+                "Düşük" => 0,
+                "Orta" => 1,
+                "Yüksek" => 2,
+                _ => 0
+            };
+        }
+        else if (EntityType == nameof(ProjeDiyagram) && Entity is ProjeDiyagram pd)
+        {
+            projeDiyagram = pd;
+        }
+    }
+
+    private async void Kaydet()
+    {
+        if (EntityType == nameof(FinansalBilgi))
+        {
+            finansalBilgi.ProjeID = ProjeID;
+            if (!IsEditMode) Db.FinansalBilgiler.Add(finansalBilgi);
+        }
+        else if (EntityType == nameof(TeknikGereksinim))
+        {
+            teknikGereksinim.ProjeID = ProjeID;
+            if (!IsEditMode) Db.TeknikGereksinimler.Add(teknikGereksinim);
+        }
+        else if (EntityType == nameof(FonksiyonelGereksinim))
+        {
+            fonksiyonelGereksinim.ProjeID = ProjeID;
+            fonksiyonelGereksinim.Onem = seciliOnem switch
+            {
+                0 => "Düşük",
+                1 => "Orta",
+                2 => "Yüksek",
+                _ => ""
+            };
+            if (!IsEditMode) Db.FonksiyonelGereksinimler.Add(fonksiyonelGereksinim);
+        }
+        else if (EntityType == nameof(ProjeDiyagram))
+        {
+            projeDiyagram.ProjeID = ProjeID;
+            if (!IsEditMode) Db.ProjeDiyagramlari.Add(projeDiyagram);
+        }
+
+        await Db.SaveChangesAsync();
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private async Task OnInputFileChanged(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        var uploadsFolder = Path.Combine(Env.WebRootPath, "uploads");
+        if (!Directory.Exists(uploadsFolder))
+            Directory.CreateDirectory(uploadsFolder);
+
+        var fileName = $"{Guid.NewGuid()}_{file.Name}";
+        var filePath = Path.Combine(uploadsFolder, fileName);
+
+        await using var stream = File.Create(filePath);
+        await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
+
+        projeDiyagram.DiyagramUrl = Path.Combine("uploads", fileName).Replace("\\", "/");
+    }
+}

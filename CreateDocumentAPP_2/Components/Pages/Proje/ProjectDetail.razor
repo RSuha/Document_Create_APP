@@ -8,7 +8,10 @@
     <MudPaper Class="p-4">
         <MudCard>
             <MudCardContent>
-                <MudText Typo="Typo.h4" Class="mb-4">📄 @proje?.ProjeAdi</MudText>
+                <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Typo="Typo.h4">📄 @proje?.ProjeAdi</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.PostAdd" OnClick="() => editMode = !editMode" />
+                </MudStack>
 
                 @if (proje == null)
                 {
@@ -18,12 +21,36 @@
                 {
                     <MudGrid>
                         <MudItem xs="12" md="6">
-                            <MudText><b>Proje Adı:</b> @proje.ProjeAdi</MudText>
-                            <MudText><b>Açıklama:</b> @proje.Aciklama</MudText>
-                            <MudText><b>Durum:</b> @proje.Durum</MudText>
-                            <MudText><b>Başlangıç:</b> @proje.BaslangicTarihi?.ToShortDateString()</MudText>
-                            <MudText><b>Bitiş:</b> @proje.BitisTarihi?.ToShortDateString()</MudText>
-                            <MudText><b>Kategori:</b> @proje.Kategori?.Ad</MudText>
+                            @if (editMode)
+                            {
+                                <MudTextField Label="Proje Adı" @bind-Value="proje.ProjeAdi" />
+                                <MudTextField Label="Açıklama" @bind-Value="proje.Aciklama" />
+                                <MudSelect T="ProjeDurumu" Label="Durum" @bind-Value="proje.Durum">
+                                    @foreach (var durum in Enum.GetValues(typeof(ProjeDurumu)).Cast<ProjeDurumu>())
+                                    {
+                                        <MudSelectItem Value="@durum">@durum</MudSelectItem>
+                                    }
+                                </MudSelect>
+                                <MudDatePicker Label="Bitiş Tarihi" @bind-Date="proje.BitisTarihi" />
+                                <MudSelect T="int?" Label="Kategori" @bind-Value="proje.KategoriID">
+                                    @foreach (var kategori in kategoriler)
+                                    {
+                                        <MudSelectItem Value="@(kategori.KategoriID as int?)">@kategori.Ad</MudSelectItem>
+                                    }
+                                </MudSelect>
+
+
+                                <MudButton Color="Color.Primary" OnClick="KaydetProje">Kaydet</MudButton>
+                            }
+                            else
+                            {
+                                <MudText><b>Proje Adı:</b> @proje.ProjeAdi</MudText>
+                                <MudText><b>Açıklama:</b> @proje.Aciklama</MudText>
+                                <MudText><b>Durum:</b> @proje.Durum</MudText>
+                                <MudText><b>Başlangıç:</b> @proje.BaslangicTarihi?.ToShortDateString()</MudText>
+                                <MudText><b>Bitiş:</b> @proje.BitisTarihi?.ToShortDateString()</MudText>
+                                <MudText><b>Kategori:</b> @proje.Kategori?.Ad</MudText>
+                            }
                         </MudItem>
                         <MudItem xs="12" md="6">
                             <MudText Typo="Typo.h6">Oluşturan Kullanıcı</MudText>
@@ -35,27 +62,44 @@
                         </MudItem>
                     </MudGrid>
 
-                    <MudDivider Class="my-4" />
+                    <MudDivider Class="my-4" /> //-------------------------------------------------------------------------------------------------------
+
                     <MudText Typo="Typo.h6">🎯 Stratejik Hedefler</MudText>
                     <MudText>@proje.ProjeDetay?.StratejikHedefler</MudText>
 
-                    <MudDivider Class="my-4" />
-                    <MudText Typo="Typo.h6">💰 Finansal Bilgiler</MudText>
+                    <MudDivider Class="my-4" />  //-------------------------------------------------------------------------------------------------------
+
+                    <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+                        <MudText Typo="Typo.h6">💰 Finansal Bilgiler</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Add" OnClick="() => OpenDynamicDialog(nameof(FinansalBilgi))" />
+                    </MudStack>
                     <MudList T="object">
                         @foreach (var item in proje.FinansalBilgiler)
                         {
                             <MudListItem>
                                 <MudListItemText>@item.IlgiliIs - <b>@item.AyrilanButce</b></MudListItemText>
+                                <MudListItemIcon>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small"
+                                                   OnClick="() => OpenDynamicDialog(nameof(FinansalBilgi), item.Id, item)" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                                   OnClick="() => ConfirmDelete(item)" />
+                                </MudListItemIcon>
                             </MudListItem>
                         }
+
                     </MudList>
 
-                    <MudDivider Class="my-4" />
-                    <MudText Typo="Typo.h6">🛠️ Teknik Gereksinimler</MudText>
+                    <MudDivider Class="my-4" />    //-------------------------------------------------------------------------------------------------------
+
+                    <MudStack Direction="Row" AlignItems="AlignItems.Center" JustifyContent="SpaceBetween">
+                        <MudText Typo="Typo.h6">🛠️ Teknik Gereksinimler</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Add" OnClick="() => OpenDynamicDialog(nameof(TeknikGereksinim))" />
+                    </MudStack>
                     <MudTable Items="@proje.TeknikGereksinimler" Hover="true">
                         <HeaderContent>
                             <MudTh>Gereksinim</MudTh>
                             <MudTh>Notlar</MudTh>
+                            <MudTh>Aksiyonlar</MudTh>
                         </HeaderContent>
                         <RowTemplate>
                             <MudTd>@context.Gereksinim</MudTd>
@@ -65,17 +109,29 @@
                                     Notları Görüntüle
                                 </MudButton>
                             </MudTd>
+                            <MudTd>
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="() => OpenDynamicDialog(nameof(TeknikGereksinim), context.Id, context)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                               OnClick="() => ConfirmDelete(context)" />
+                            </MudTd>
                         </RowTemplate>
                     </MudTable>
 
-                    <MudDivider Class="my-4" />
-                    <MudText Typo="Typo.h6">🧾 Fonksiyonel Gereksinimler</MudText>
+
+                    <MudDivider Class="my-4" /> //-------------------------------------------------------------------------------------------------------
+
+                    <MudStack Direction="Row" AlignItems="AlignItems.Center" JustifyContent="SpaceBetween">
+                        <MudText Typo="Typo.h6">🧾 Fonksiyonel Gereksinimler</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Add" OnClick="() => OpenDynamicDialog(nameof(FonksiyonelGereksinim))" />
+                    </MudStack>
                     <MudTable Items="@proje.FonksiyonelGereksinimler" Hover="true">
                         <HeaderContent>
                             <MudTh>Gereklilik</MudTh>
                             <MudTh>Açıklama</MudTh>
                             <MudTh>Önem</MudTh>
                             <MudTh>Notlar</MudTh>
+                            <MudTh>Aksiyonlar</MudTh>
                         </HeaderContent>
                         <RowTemplate>
                             <MudTd>@context.Gereklilik</MudTd>
@@ -87,20 +143,39 @@
                                     Notları Görüntüle
                                 </MudButton>
                             </MudTd>
+                            <MudTd>
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="() => OpenDynamicDialog(nameof(FonksiyonelGereksinim), context.Id, context)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                               OnClick="() => ConfirmDelete(context)" />
+                            </MudTd>
                         </RowTemplate>
                     </MudTable>
-                    <MudDivider Class="my-4" />
-                    <MudText Typo="Typo.h6">📊 Proje Diyagramları</MudText>
-                    <MudPaper Class="p-4">
-                        <MudText Typo="Typo.h6">📊 Proje Diyagramları</MudText>
 
+
+                    <MudDivider Class="my-4" /> //-------------------------------------------------------------------------------------------------------
+
+                    <MudStack Direction="Row" AlignItems="AlignItems.Center" JustifyContent="SpaceBetween">
+                        <MudText Typo="Typo.h6">📊 Proje Diyagramları</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Add" OnClick="() => OpenDynamicDialog(nameof(ProjeDiyagram))" />
+                    </MudStack>
+                    <MudPaper Class="p-4">
                         <div style="display: flex; overflow-x: auto; gap: 16px; padding: 1rem;">
                             @foreach (var diyagram in proje.ProjeDiyagramlari)
                             {
                                 <MudCard Style="min-width: 300px;">
                                     <MudCardContent>
                                         <MudText Typo="Typo.subtitle1">@diyagram.DiyagramAdi</MudText>
-                                        <img src="@diyagram.DiyagramUrl" alt="Diyagram" style="width: 100%; max-height: 200px; object-fit: contain;" @onclick="@(args => ShowImage($"/{diyagram.DiyagramUrl}"))" />
+                                        <img src="@diyagram.DiyagramUrl" alt="Diyagram"
+                                             style="width: 100%; max-height: 200px; object-fit: contain; cursor: pointer;"
+                                             @onclick="@(args => ShowImage($"/{diyagram.DiyagramUrl}"))" />
+
+                                        <MudStack Direction="Row" JustifyContent="SpaceBetween" Class="mt-2">
+                                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small"
+                                                           OnClick="() => OpenDynamicDialog(nameof(ProjeDiyagram), diyagram.Id, diyagram)" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                                           OnClick="() => ConfirmDelete(diyagram)" />
+                                        </MudStack>
                                     </MudCardContent>
                                 </MudCard>
                             }
@@ -108,7 +183,8 @@
                     </MudPaper>
 
 
-                    <MudDivider Class="my-4" />
+                    <MudDivider Class="my-4" /> //-------------------------------------------------------------------------------------------------------
+
                     <MudText Typo="Typo.h6">👥 Proje Takım Üyeleri</MudText>
                     <MudTable Items="@proje.ProjeUyeleri" Hover="true">
                         <HeaderContent>
@@ -130,25 +206,19 @@
     </MudPaper>
 </MudContainer>
 
-@code {
-    [Parameter]
-    public int ProjeID { get; set; }
 
+<style>
+    .flex-column {
+        flex-direction: row !important;
+    }
+</style>
+
+
+@code {
+    [Parameter] public int ProjeID { get; set; }
     private Proje? proje;
 
-    protected override async Task OnInitializedAsync()
-    {
-        proje = await Db.Projeler
-            .Include(p => p.Kategori)
-            .Include(p => p.Olusturan).ThenInclude(k => k.Departman)
-            .Include(p => p.FinansalBilgiler)
-            .Include(p => p.TeknikGereksinimler).ThenInclude(t => t.Notlar)
-            .Include(p => p.FonksiyonelGereksinimler).ThenInclude(f => f.Notlar)
-            .Include(p => p.ProjeDetay)
-            .Include(p => p.ProjeDiyagramlari)
-            .Include(p => p.ProjeUyeleri).ThenInclude(pt => pt.Kullanici)
-            .FirstOrDefaultAsync(p => p.ProjeID == ProjeID);
-    }
+    //-------------------------------------------------------------------------------------------------------------------------------
 
     private void ShowNotesDialog(List<GereksinimNotu> notlar, string dialogBaslik, int? fgId, int? tgId)
     {
@@ -163,11 +233,94 @@
         DialogService.Show<Dialog_ProjectDetail_NotesViewer>("Notlar", parameters);
     }
 
+    //-------------------------------------------------------------------------------------------------------------------------------
+
     void ShowImage(string? url)
     {
         if (!string.IsNullOrWhiteSpace(url))
         {
             DialogService.Show<Dialog_ShowImage>("Görsel", new DialogParameters { ["ImageUrl"] = url });
+        }
+    }
+
+    //-------------------------------------------------------------------------------------------------------------------------------
+
+    private async Task OpenDynamicDialog(string entityType, int? entityId = null, object? entity = null)
+    {
+        var parameters = new DialogParameters
+    {
+        { "EntityType", entityType },
+        { "ProjeID", ProjeID }
+    };
+
+        if (entityId.HasValue)
+            parameters.Add("EntityId", entityId.Value);
+
+        if (entity is not null)
+            parameters.Add("Entity", entity);
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = DialogService.Show<Dialog_AddEntity>("Düzenle", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await OnInitializedAsync();
+            StateHasChanged();
+        }
+    }
+
+    //-------------------------------------------------------------------------------------------------------------------------------
+
+    private List<ProjeKategori> kategoriler = new();
+    private bool editMode = false;
+
+    private async Task KaydetProje()
+    {
+        if (proje is not null)
+        {
+            Db.Projeler.Update(proje);
+            await Db.SaveChangesAsync();
+            editMode = false;
+            StateHasChanged();
+        }
+    }
+
+    //-------------------------------------------------------------------------------------------------------------------------------
+
+    protected override async Task OnInitializedAsync()
+    {
+        proje = await Db.Projeler
+            .Include(p => p.Kategori)
+            .Include(p => p.Olusturan).ThenInclude(k => k.Departman)
+            .Include(p => p.FinansalBilgiler)
+            .Include(p => p.TeknikGereksinimler).ThenInclude(t => t.Notlar)
+            .Include(p => p.FonksiyonelGereksinimler).ThenInclude(f => f.Notlar)
+            .Include(p => p.ProjeDetay)
+            .Include(p => p.ProjeDiyagramlari)
+            .Include(p => p.ProjeUyeleri).ThenInclude(pt => pt.Kullanici)
+            .FirstOrDefaultAsync(p => p.ProjeID == ProjeID);
+
+        kategoriler = await Db.ProjeKategorileri.ToListAsync();
+    }
+
+    //-------------------------------------------------------------------------------------------------------------------------------
+
+    private async void ConfirmDelete(object entity)
+    {
+        var parameters = new DialogParameters
+    {
+        { "Entity", entity }
+    };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = DialogService.Show<Dialog_ConfirmDelete>("Silme Onayı", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await OnInitializedAsync();
+            StateHasChanged();          
         }
     }
 
