@@ -185,21 +185,31 @@
 
                     <MudDivider Class="my-4" /> //-------------------------------------------------------------------------------------------------------
 
-                    <MudText Typo="Typo.h6">👥 Proje Takım Üyeleri</MudText>
+                    <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+                        <MudText Typo="Typo.h6">👥 Proje Takım Üyeleri</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Add" OnClick="OpenKullaniciAtamaDialog" />
+                    </MudStack>
+
                     <MudTable Items="@proje.ProjeUyeleri" Hover="true">
                         <HeaderContent>
                             <MudTh>Ad Soyad</MudTh>
                             <MudTh>Rol</MudTh>
                             <MudTh>Ünvan</MudTh>
                             <MudTh>Atanma Tarihi</MudTh>
+                            <MudTh>Aksiyon</MudTh>
                         </HeaderContent>
                         <RowTemplate>
                             <MudTd>@context.Kullanici?.Ad @context.Kullanici?.Soyad</MudTd>
                             <MudTd>@context.Kullanici?.Rol</MudTd>
                             <MudTd>@context.Kullanici?.Title</MudTd>
                             <MudTd>@context.AtanmaTarihi.ToShortDateString()</MudTd>
+                            <MudTd>
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                               OnClick="() => ConfirmDelete(context)" />
+                            </MudTd>
                         </RowTemplate>
                     </MudTable>
+
                 }
             </MudCardContent>
         </MudCard>
@@ -324,4 +334,29 @@
         }
     }
 
+    //-------------------------------------------------------------------------------------------------------------------------------
+
+    private async void OpenKullaniciAtamaDialog()
+    {
+        var parameters = new DialogParameters
+            {
+                ["Proje"] = proje,
+                ["CompanyId"] = proje.CompanyID  // Gerekli parametre eklendi
+            };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = DialogService.Show<Dialog_ProjectAssignment>("Kullanıcı Ata", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await OnInitializedAsync(); // proje detayını yeniden yükle
+            StateHasChanged();
+            Snackbar.Add("Kullanıcı başarıyla atandı.", Severity.Success);
+
+        }
+    }
+
 }
+
+

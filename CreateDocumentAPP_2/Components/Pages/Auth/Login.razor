@@ -176,13 +176,14 @@
 
         if (loginSuccess)
         {
-            Navigation.NavigateTo("/default-home");
+            Navigation.NavigateTo("/default-home", forceLoad: true);
         }
         else
         {
             ErrorMessage = "Geçersiz e-posta veya şifre.";
         }
     }
+
 
     private void GoToChangePassword()
     {

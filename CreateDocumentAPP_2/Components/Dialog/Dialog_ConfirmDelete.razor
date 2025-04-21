@@ -23,6 +23,11 @@
         {
             <MudText><b>Diyagram Adı:</b> @pd.DiyagramAdi</MudText>
         }
+        else if (Entity is ProjeTakim pt)
+        {
+            <MudText><b>Kullanıcı:</b> @pt.Kullanici?.Ad @pt.Kullanici?.Soyad</MudText>
+        }
+
     </DialogContent>
 
     <DialogActions>
@@ -45,6 +50,9 @@
             Db.FonksiyonelGereksinimler.Remove(fg);
         else if (Entity is ProjeDiyagram pd)
             Db.ProjeDiyagramlari.Remove(pd);
+        else if (Entity is ProjeTakim pt)
+            Db.ProjeTakimlari.Remove(pt);
+
 
         await Db.SaveChangesAsync();
         MudDialog.Close(DialogResult.Ok(true));

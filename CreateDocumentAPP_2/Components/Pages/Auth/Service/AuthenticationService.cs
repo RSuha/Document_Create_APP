@@ -14,32 +14,35 @@ public class AuthenticationService
         _dbContext = dbContext;
         _authStateProvider = (CustomAuthStateProvider)authStateProvider;
     }
-
     public async Task<bool> Login(string email, string password)
     {
-        var user = await _dbContext.Kullanicilar.FirstOrDefaultAsync(u => u.Email == email && u.SifreHash == password);
+        var user = await _dbContext.Kullanicilar
+            .Include(k => k.Company)
+            .FirstOrDefaultAsync(u => u.Email == email && u.SifreHash == password);
 
         if (user == null)
             return false;
 
         var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.Name, user.Email),  // Email aynı kalacak
-            new Claim("FullName", $"{user.Ad} {user.Soyad}"), // Yeni alan FullName
-            new Claim(ClaimTypes.GivenName, user.Ad),  // Yeni eklenen Ad alanı
-            new Claim(ClaimTypes.Surname, user.Soyad), // Yeni eklenen Soyad alanı
-            new Claim(ClaimTypes.Role, user.Rol.ToString())
-        };
-
-
+    {
+        new Claim(ClaimTypes.Name, user.Email),
+        new Claim("FullName", $"{user.Ad} {user.Soyad}"),
+        new Claim(ClaimTypes.GivenName, user.Ad),
+        new Claim(ClaimTypes.Surname, user.Soyad),
+        new Claim(ClaimTypes.Role, user.Rol.ToString()),
+        new Claim("Title", user.Title.ToString()),
+        new Claim("CompanyID", user.CompanyID?.ToString() ?? ""),
+        new Claim("DepartmanID", user.DepartmanID?.ToString() ?? "")
+    };
 
         var identity = new ClaimsIdentity(claims, "Auth");
         var userPrincipal = new ClaimsPrincipal(identity);
 
-        await _authStateProvider.SetUser(userPrincipal);  // Artık JSON'da sadece Email & Role saklanıyor
+        await _authStateProvider.SetUser(userPrincipal);
 
         return true;
     }
+
 
     public async Task Logout()
     {
