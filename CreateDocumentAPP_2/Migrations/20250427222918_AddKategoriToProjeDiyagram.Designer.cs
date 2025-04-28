@@ -4,6 +4,7 @@ using CreateDocumentAPP_2.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CreateDocumentAPP_2.Migrations
 {
     [DbContext(typeof(ProjeDbContext))]
-    partial class ProjeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250427222918_AddKategoriToProjeDiyagram")]
+    partial class AddKategoriToProjeDiyagram
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -63,24 +66,6 @@ namespace CreateDocumentAPP_2.Migrations
                     b.HasIndex("CompanyID");
 
                     b.ToTable("Departmanlar");
-                });
-
-            modelBuilder.Entity("CreateDocumentAPP_2.Entities.Model.DiyagramKategori", b =>
-                {
-                    b.Property<int>("KategoriID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("KategoriID"));
-
-                    b.Property<string>("KategoriAdi")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("KategoriID");
-
-                    b.ToTable("DiyagramKategorileri");
                 });
 
             modelBuilder.Entity("CreateDocumentAPP_2.Entities.Model.FinansalBilgi", b =>
@@ -316,15 +301,13 @@ namespace CreateDocumentAPP_2.Migrations
                     b.Property<string>("DiyagramUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("KategoriID")
-                        .HasColumnType("int");
+                    b.Property<string>("Kategori")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("ProjeID")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("KategoriID");
 
                     b.HasIndex("ProjeID");
 
@@ -503,18 +486,11 @@ namespace CreateDocumentAPP_2.Migrations
 
             modelBuilder.Entity("CreateDocumentAPP_2.Entities.Model.ProjeDiyagram", b =>
                 {
-                    b.HasOne("CreateDocumentAPP_2.Entities.Model.DiyagramKategori", "Kategori")
-                        .WithMany("ProjeDiyagramlari")
-                        .HasForeignKey("KategoriID")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("CreateDocumentAPP_2.Entities.Model.Proje", "Proje")
                         .WithMany("ProjeDiyagramlari")
                         .HasForeignKey("ProjeID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Kategori");
 
                     b.Navigation("Proje");
                 });
@@ -563,11 +539,6 @@ namespace CreateDocumentAPP_2.Migrations
             modelBuilder.Entity("CreateDocumentAPP_2.Entities.Model.Departman", b =>
                 {
                     b.Navigation("Kullanicilar");
-                });
-
-            modelBuilder.Entity("CreateDocumentAPP_2.Entities.Model.DiyagramKategori", b =>
-                {
-                    b.Navigation("ProjeDiyagramlari");
                 });
 
             modelBuilder.Entity("CreateDocumentAPP_2.Entities.Model.FonksiyonelGereksinim", b =>

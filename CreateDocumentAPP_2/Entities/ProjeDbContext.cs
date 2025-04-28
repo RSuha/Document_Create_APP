@@ -22,6 +22,9 @@ namespace CreateDocumentAPP_2.Entities
         public DbSet<ProjeDiyagram> ProjeDiyagramlari { get; set; }
         public DbSet<GereksinimNotu> GereksinimNotlari { get; set; }
 
+        // 📌 Yeni eklenen DbSet
+        public DbSet<DiyagramKategori> DiyagramKategorileri { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Kullanıcı-Şirket
@@ -91,7 +94,12 @@ namespace CreateDocumentAPP_2.Entities
                 .HasForeignKey(n => n.FonksiyonelGereksinimID)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // 📌 ProjeDiyagram - DiyagramKategori ilişkisi 
+            modelBuilder.Entity<ProjeDiyagram>()
+                .HasOne(d => d.Kategori)
+                .WithMany(k => k.ProjeDiyagramlari)
+                .HasForeignKey(d => d.KategoriID)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }
-

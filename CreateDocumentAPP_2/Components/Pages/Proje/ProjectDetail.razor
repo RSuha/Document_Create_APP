@@ -160,27 +160,41 @@
                         <MudIconButton Icon="@Icons.Material.Filled.Add" OnClick="() => OpenDynamicDialog(nameof(ProjeDiyagram))" />
                     </MudStack>
                     <MudPaper Class="p-4">
-                        <div style="display: flex; overflow-x: auto; gap: 16px; padding: 1rem;">
-                            @foreach (var diyagram in proje.ProjeDiyagramlari)
-                            {
-                                <MudCard Style="min-width: 300px;">
-                                    <MudCardContent>
-                                        <MudText Typo="Typo.subtitle1">@diyagram.DiyagramAdi</MudText>
-                                        <img src="@diyagram.DiyagramUrl" alt="Diyagram"
-                                             style="width: 100%; max-height: 200px; object-fit: contain; cursor: pointer;"
-                                             @onclick="@(args => ShowImage($"/{diyagram.DiyagramUrl}"))" />
 
-                                        <MudStack Direction="Row" JustifyContent="SpaceBetween" Class="mt-2">
-                                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small"
-                                                           OnClick="() => OpenDynamicDialog(nameof(ProjeDiyagram), diyagram.Id, diyagram)" />
-                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
-                                                           OnClick="() => ConfirmDelete(diyagram)" />
-                                        </MudStack>
-                                    </MudCardContent>
-                                </MudCard>
+                        <MudExpansionPanels Elevation="0">
+
+                            @foreach (var grup in gruplanmisDiyagramlar)
+                            {
+                                <MudExpansionPanel Text="@(!string.IsNullOrEmpty(grup.Key) ? grup.Key : "Kategori Yok")">
+                                    <div style="display: flex; overflow-x: auto; gap: 16px; padding: 1rem;">
+                                        @foreach (var diyagram in grup)
+                                        {
+                                            <MudCard Style="min-width: 300px;">
+                                                <MudCardContent>
+                                                    <MudText Typo="Typo.subtitle1">@diyagram.DiyagramAdi</MudText>
+
+                                                    <img src="@diyagram.DiyagramUrl" alt="Diyagram"
+                                                         style="width: 100%; max-height: 200px; object-fit: contain; cursor: pointer;"
+                                                         @onclick="@(args => ShowImage($"/{diyagram.DiyagramUrl}"))" />
+
+                                                    <MudStack Direction="Row" JustifyContent="SpaceBetween" Class="mt-2">
+                                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small"
+                                                                       OnClick="() => OpenDynamicDialog(nameof(ProjeDiyagram), diyagram.Id, diyagram)" />
+                                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                                                       OnClick="() => ConfirmDelete(diyagram)" />
+                                                    </MudStack>
+                                                </MudCardContent>
+                                            </MudCard>
+                                        }
+                                    </div>
+                                </MudExpansionPanel>
                             }
-                        </div>
+
+                        </MudExpansionPanels>
+
                     </MudPaper>
+
+
 
 
                     <MudDivider Class="my-4" /> //-------------------------------------------------------------------------------------------------------
@@ -225,7 +239,10 @@
 
 
 @code {
-    [Parameter] public int ProjeID { get; set; }
+    [Parameter]
+    public int ProjeID { get; set; }
+
+    
     private Proje? proje;
 
     //-------------------------------------------------------------------------------------------------------------------------------
@@ -298,6 +315,9 @@
 
     //-------------------------------------------------------------------------------------------------------------------------------
 
+    private List<IGrouping<string?, ProjeDiyagram>> gruplanmisDiyagramlar = new();
+
+
     protected override async Task OnInitializedAsync()
     {
         proje = await Db.Projeler
@@ -307,12 +327,21 @@
             .Include(p => p.TeknikGereksinimler).ThenInclude(t => t.Notlar)
             .Include(p => p.FonksiyonelGereksinimler).ThenInclude(f => f.Notlar)
             .Include(p => p.ProjeDetay)
-            .Include(p => p.ProjeDiyagramlari)
+            .Include(p => p.ProjeDiyagramlari).ThenInclude(d => d.Kategori) 
             .Include(p => p.ProjeUyeleri).ThenInclude(pt => pt.Kullanici)
             .FirstOrDefaultAsync(p => p.ProjeID == ProjeID);
 
         kategoriler = await Db.ProjeKategorileri.ToListAsync();
+
+        if (proje?.ProjeDiyagramlari != null)
+        {
+            gruplanmisDiyagramlar = proje.ProjeDiyagramlari
+                .GroupBy(d => d.Kategori != null ? d.Kategori.KategoriAdi : "Kategori Yok")
+                .ToList();
+        }
     }
+
+
 
     //-------------------------------------------------------------------------------------------------------------------------------
 

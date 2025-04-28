@@ -33,6 +33,16 @@
         {
             <MudText Typo="Typo.h6">@(IsEditMode ? "Proje Diyagramı Düzenle" : "Yeni Proje Diyagramı")</MudText>
             <MudTextField Label="Diyagram Adı" @bind-Value="projeDiyagram.DiyagramAdi" />
+
+            <MudSelect T="int?" Label="Diyagram Kategorisi" @bind-Value="projeDiyagram.KategoriID" Required="true">
+                @foreach (var kategori in diyagramKategorileri)
+                {
+                    <MudSelectItem T="int?" Value="@kategori.KategoriID">@kategori.KategoriAdi</MudSelectItem>
+                }
+            </MudSelect>
+
+
+
             <InputFile OnChange="OnInputFileChanged" />
             @if (!string.IsNullOrWhiteSpace(projeDiyagram.DiyagramUrl))
             {
@@ -59,10 +69,12 @@
     FonksiyonelGereksinim fonksiyonelGereksinim = new();
     ProjeDiyagram projeDiyagram = new();
 
+    List<DiyagramKategori> diyagramKategorileri = new(); // 📌 Kategori listesi
+
     bool IsEditMode => Entity != null;
     int seciliOnem;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         if (EntityType == nameof(FinansalBilgi) && Entity is FinansalBilgi fb)
         {
@@ -86,6 +98,12 @@
         else if (EntityType == nameof(ProjeDiyagram) && Entity is ProjeDiyagram pd)
         {
             projeDiyagram = pd;
+        }
+
+        // 📌 Sadece diyagram eklerken kategori listesi çekiyoruz
+        if (EntityType == nameof(ProjeDiyagram))
+        {
+            diyagramKategorileri = await Db.DiyagramKategorileri.ToListAsync();
         }
     }
 

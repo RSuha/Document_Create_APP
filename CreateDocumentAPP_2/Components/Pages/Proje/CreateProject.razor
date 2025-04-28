@@ -1,15 +1,14 @@
 ﻿@page "/new-project"
 @using CreateDocumentAPP_2.Entities.Model
-@using MudBlazor
-@using Microsoft.EntityFrameworkCore
-@inject ProjeDbContext DbContext
-@inject NavigationManager navManager
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ProjeDbContext DbContext
+@inject IWebHostEnvironment Env
 
-<MudPaper Class="p-4">
-    <MudStepper Elevation="0" @bind-ActiveStepIndex="_activeStep">
+<MudPaper Class="pa-4">
+    <MudStepper @bind-ActiveStepIndex="_activeStep">
 
-        <!-- Adım 1: Proje Bilgileri -->
         <MudStep Label="Proje Bilgileri">
             <MudTextField @bind-Value="Proje.ProjeAdi" Label="Proje Adı" Required="true" />
             <MudTextField @bind-Value="Proje.Aciklama" Label="Açıklama" Lines="3" />
@@ -23,56 +22,291 @@
             <MudSelect T="int?" Label="Kategori" @bind-Value="Proje.KategoriID">
                 @foreach (var kategori in Kategoriler)
                 {
-                    <MudSelectItem Value="@(kategori.KategoriID as int?)">@kategori.Ad</MudSelectItem>
+                    <MudSelectItem T="int?" Value="@kategori.KategoriID">@kategori.Ad</MudSelectItem>
                 }
             </MudSelect>
         </MudStep>
 
-        <!-- Adım 2: Proje Detayları -->
-        <MudStep Label="Proje Detayları">
-            <MudTextField @bind-Value="Detay.TeknikGereksinimler" Label="Teknik Gereksinimler" Lines="3" />
-            <MudTextField @bind-Value="Detay.FinansalBilgiler" Label="Finansal Bilgiler" Lines="3" />
-            <MudTextField @bind-Value="Detay.StratejikHedefler" Label="Stratejik Hedefler" Lines="3" />
+        <MudStep Label="Stratejik hedefler">
+            <MudTextField @bind-Value="Detay.StratejikHedefler" Label="Stratejik Hedefler" FullWidth="true" Lines="1" />
         </MudStep>
 
-        <!-- Adım 3: Proje Ekibi -->
-        <MudStep Label="Proje Ekibi">
-            <MudSelect T="int" Label="Kullanıcı Seçin" MultiSelection="true"
-                       SelectedValues="@SecilenKullanicilar"
-                       SelectedValuesChanged="@(values => SecilenKullanicilar = values.ToList())">
-                @foreach (var kullanici in SirketKullanicilari)
-                {
-                    <MudSelectItem Value="@kullanici.UserID">@kullanici.Ad @kullanici.Soyad</MudSelectItem>
-                }
-            </MudSelect>
+        <MudStep Label="Finansal Bilgiler">
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Ayrılan Bütçe" @bind-Value="YeniFinansalBilgi.AyrilanButce" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="İlgili İş" @bind-Value="YeniFinansalBilgi.IlgiliIs" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudButton OnClick="AddFinansalBilgi" Color="Color.Primary">Ekle</MudButton>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable T="FinansalBilgi" Items="FinansalBilgiler" Dense="true">
+                <HeaderContent>
+                    <MudTh>Ayrılan Bütçe</MudTh>
+                    <MudTh>İlgili İş</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.AyrilanButce</MudTd>
+                    <MudTd>@context.IlgiliIs</MudTd>
+                </RowTemplate>
+            </MudTable>
         </MudStep>
 
-        <!-- Adım 4: Onay ve Oluştur -->
-        <MudStep Label="Onay ve Oluştur">
-            <MudText Typo="Typo.h6">Girdiğiniz Bilgiler:</MudText>
-            <MudList T="object">
-                <MudListItem>Proje Adı: @Proje.ProjeAdi</MudListItem>
-                <MudListItem>Açıklama: @Proje.Aciklama</MudListItem>
-                <MudListItem>Başlangıç: @Proje.BaslangicTarihi?.ToShortDateString()</MudListItem>
-                <MudListItem>Bitiş: @Proje.BitisTarihi?.ToShortDateString()</MudListItem>
-                <MudListItem>Durum: @Proje.Durum.ToString()</MudListItem>
-                <MudListItem>Kategori: @(Kategoriler.FirstOrDefault(k => k.KategoriID == Proje.KategoriID)?.Ad)</MudListItem>
-                <MudListItem>Teknik Gereksinimler: @Detay.TeknikGereksinimler</MudListItem>
-                <MudListItem>Finansal Bilgiler: @Detay.FinansalBilgiler</MudListItem>
-                <MudListItem>Stratejik Hedefler: @Detay.StratejikHedefler</MudListItem>
-                <MudListItem>
-                    Seçilen Kullanıcılar: @(string.Join(", ", SecilenKullanicilar.Select(id =>
-                    {
-                        var kullanici = SirketKullanicilari.FirstOrDefault(k => k.UserID == id);
-                        return kullanici != null ? $"{kullanici.Ad} {kullanici.Soyad} ({kullanici.UserID})" : $"{id}";
-                    })))
-                </MudListItem>
-            </MudList>
+        <MudStep Label="Teknik Gereksinimler">
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="YeniTeknikGereksinim.Gereksinim" Label="Teknik Gereksinim" FullWidth="true" Lines="3" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudButton OnClick="AddTeknikGereksinim" Color="Color.Primary">Ekle</MudButton>
+                </MudItem>
+            </MudGrid>
 
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="HandleCreate">Oluştur</MudButton>
+            <MudTable T="TeknikGereksinim" Items="TeknikGereksinimler" Dense="true">
+                <HeaderContent>
+                    <MudTh>Gereksinim</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Gereksinim</MudTd>
+                </RowTemplate>
+            </MudTable>
         </MudStep>
+
+        <MudStep Label="Fonksiyonel Gereksinimler">
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Gereklilik" @bind-Value="YeniFonksiyonelGereksinim.Gereklilik" FullWidth="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Açıklama" @bind-Value="YeniFonksiyonelGereksinim.Aciklama" FullWidth="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int?" Label="Önem" @bind-Value="seciliOnem" Required="true">
+                        <MudSelectItem T="int?" Value="0">Düşük</MudSelectItem>
+                        <MudSelectItem T="int?" Value="1">Orta</MudSelectItem>
+                        <MudSelectItem T="int?" Value="2">Yüksek</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudButton OnClick="AddFonksiyonelGereksinim" Color="Color.Primary">Kaydet</MudButton>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable T="FonksiyonelGereksinim" Items="FonksiyonelGereksinimler" Dense="true">
+                <HeaderContent>
+                    <MudTh>Gereklilik</MudTh>
+                    <MudTh>Açıklama</MudTh>
+                    <MudTh>Önem</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Gereklilik</MudTd>
+                    <MudTd>@context.Aciklama</MudTd>
+                    <MudTd>@context.Onem</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudStep>
+
+        <MudStep Label="Proje Diyagramları">
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Diyagram Adı" @bind-Value="YeniProjeDiyagram.DiyagramAdi" FullWidth="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int?" Label="Diyagram Kategorisi" @bind-Value="YeniProjeDiyagram.KategoriID" FullWidth="true" Required="true">
+                        @foreach (var kategori in DiyagramKategorileri)
+                        {
+                            <MudSelectItem T="int?" Value="@kategori.KategoriID">@kategori.KategoriAdi</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <InputFile OnChange="OnDiyagramFileSelected" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudButton OnClick="AddProjeDiyagram" Color="Color.Primary"
+                               Disabled="@(string.IsNullOrWhiteSpace(YeniProjeDiyagram.DiyagramAdi) || string.IsNullOrWhiteSpace(YeniProjeDiyagram.DiyagramUrl) || YeniProjeDiyagram.KategoriID == null)">
+                        Ekle
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable T="ProjeDiyagram" Items="ProjeDiyagramlari" Dense="true">
+                <HeaderContent>
+                    <MudTh>Diyagram Adı</MudTh>
+                    <MudTh>Kategori</MudTh>
+                    <MudTh>Önizleme</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.DiyagramAdi</MudTd>
+                    <MudTd>@DiyagramKategorileri.FirstOrDefault(k => k.KategoriID == context.KategoriID)?.KategoriAdi</MudTd>
+                    <MudTd>
+                        @if (!string.IsNullOrWhiteSpace(context.DiyagramUrl))
+                        {
+                            <img src="@($"/{context.DiyagramUrl}")" style="max-width: 100px; max-height: 100px;" />
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudStep>
+
+        <MudStep Label="Takım Üyeleri">
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudSelect T="int" Label="Takım Üyeleri Seç" MultiSelection="true" FullWidth="true"
+                               SelectedValues="@SecilenKullanicilar"
+                               SelectedValuesChanged="@(e => SecilenKullanicilar = e.ToList())"
+                               SelectedValuesExpression="() => SecilenKullanicilar">
+                        @foreach (var kullanici in SirketKullanicilari)
+                        {
+                            <MudSelectItem T="int" Value="@kullanici.UserID">@kullanici.Ad @kullanici.Soyad - @kullanici.Departman.Ad</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable T="Kullanici" Items="SirketKullanicilari.Where(k => SecilenKullanicilar.Contains(k.UserID))" Dense="true">
+                <HeaderContent>
+                    <MudTh>Ad</MudTh>
+                    <MudTh>Soyad</MudTh>
+                    <MudTh>Email</MudTh>
+                    <MudTh>Departman</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Ad</MudTd>
+                    <MudTd>@context.Soyad</MudTd>
+                    <MudTd>@context.Email</MudTd>
+                    <MudTd>@context.Departman?.Ad ?? "Departman Yok"</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudStep>
+
+        <MudStep Label="Önizleme ve Oluştur">
+            <MudPaper Class="pa-4">
+
+                <MudStack Spacing="3">
+
+                    <MudText Typo="Typo.h5" Class="mb-2">📄 Proje Bilgileri</MudText>
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudText><b>Proje Adı:</b> @Proje.ProjeAdi</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText><b>Açıklama:</b> @Proje.Aciklama</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText><b>Başlangıç Tarihi:</b> @Proje.BaslangicTarihi?.ToShortDateString()</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText><b>Bitiş Tarihi:</b> @Proje.BitisTarihi?.ToShortDateString()</MudText>
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.h6">🎯 Stratejik Hedefler</MudText>
+                    <MudText Typo="Typo.body1">@Detay.StratejikHedefler</MudText>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.h6">💰 Finansal Bilgiler</MudText>
+                    <MudGrid>
+                        @foreach (var finans in FinansalBilgiler)
+                        {
+                            <MudItem xs="12" sm="6">
+                                <MudPaper Class="p-2">
+                                    <MudText><b>Ayrılan Bütçe:</b> @finans.AyrilanButce</MudText>
+                                    <MudText><b>İlgili İş:</b> @finans.IlgiliIs</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.h6">🛠️ Teknik Gereksinimler</MudText>
+                    <MudGrid>
+                        @foreach (var teknik in TeknikGereksinimler)
+                        {
+                            <MudItem xs="12">
+                                <MudPaper Class="p-2">
+                                    <MudText>@teknik.Gereksinim</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.h6">🧩 Fonksiyonel Gereksinimler</MudText>
+                    <MudGrid>
+                        @foreach (var fonk in FonksiyonelGereksinimler)
+                        {
+                            <MudItem xs="12" sm="6">
+                                <MudPaper Class="p-2">
+                                    <MudText><b>Gereklilik:</b> @fonk.Gereklilik</MudText>
+                                    <MudText><b>Açıklama:</b> @fonk.Aciklama</MudText>
+                                    <MudText><b>Önem:</b> @fonk.Onem</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.h6">📊 Diyagramlar</MudText>
+                    <MudGrid>
+                        @foreach (var diyagram in ProjeDiyagramlari)
+                        {
+                            <MudItem xs="12" sm="6">
+                                <MudPaper Class="p-2">
+                                    <MudText><b>Diyagram Adı:</b> @diyagram.DiyagramAdi</MudText>
+                                    <MudText><b>Kategori:</b> @DiyagramKategorileri.FirstOrDefault(k => k.KategoriID == diyagram.KategoriID)?.KategoriAdi</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(diyagram.DiyagramUrl))
+                                    {
+                                        <img src="@($"/{diyagram.DiyagramUrl}")" alt="Diyagram" style="max-width: 100px; max-height: 100px;" />
+                                    }
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.h6">👥 Takım Üyeleri</MudText>
+                    <MudGrid>
+                        @foreach (var uye in SirketKullanicilari.Where(k => SecilenKullanicilar.Contains(k.UserID)))
+                        {
+                            <MudItem xs="12" sm="6">
+                                <MudPaper Class="p-2">
+                                    <MudText><b>Ad Soyad:</b> @uye.Ad @uye.Soyad</MudText>
+                                    <MudText><b>Email:</b> @uye.Email</MudText>
+                                    <MudText><b>Departman:</b> @uye.Departman?.Ad ?? "Departman Yok"</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+                    <MudDivider />
+
+                    <MudButton Color="Color.Success" Variant="Variant.Filled" OnClick="KaydetProje" Class="mt-4">
+                        Projeyi Oluştur
+                    </MudButton>
+
+                </MudStack>
+
+            </MudPaper>
+        </MudStep>
+
+
     </MudStepper>
 </MudPaper>
+
+
+
 
 @code {
     private int _activeStep = 0;
@@ -82,51 +316,190 @@
     private List<Kullanici> SirketKullanicilari = new();
     private List<int> SecilenKullanicilar = new();
 
+    private FinansalBilgi YeniFinansalBilgi = new();
+    private List<FinansalBilgi> FinansalBilgiler = new();
+
+    private TeknikGereksinim YeniTeknikGereksinim = new();
+    private List<TeknikGereksinim> TeknikGereksinimler = new();
+
+    private int? seciliOnem = 1;
+    private FonksiyonelGereksinim YeniFonksiyonelGereksinim = new();
+    private List<FonksiyonelGereksinim> FonksiyonelGereksinimler = new();
+
+    private ProjeDiyagram YeniProjeDiyagram = new();
+    private List<ProjeDiyagram> ProjeDiyagramlari = new();
+    private List<DiyagramKategori> DiyagramKategorileri = new();
+
+    // Proje Bilgileri Tek Satır Liste Halinde
+    private List<Proje> ProjeListe => new List<Proje> { Proje };
+
     protected override async Task OnInitializedAsync()
     {
         Kategoriler = await DbContext.ProjeKategorileri.ToListAsync();
+        DiyagramKategorileri = await DbContext.DiyagramKategorileri.ToListAsync();
 
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var email = authState.User.Identity?.Name;
 
         if (!string.IsNullOrWhiteSpace(email))
         {
-            var currentUser = await DbContext.Kullanicilar.FirstOrDefaultAsync(k => k.Email == email);
+            var currentUser = await DbContext.Kullanicilar.Include(k => k.Departman).FirstOrDefaultAsync(k => k.Email == email);
             if (currentUser != null)
             {
                 Proje.OlusturanID = currentUser.UserID;
                 Proje.CompanyID = currentUser.CompanyID;
 
                 SirketKullanicilari = await DbContext.Kullanicilar
+                    .Include(k => k.Departman)
                     .Where(k => k.CompanyID == currentUser.CompanyID && k.UserID != currentUser.UserID)
                     .ToListAsync();
             }
         }
     }
 
-    private async Task HandleCreate()
+    private void AddFinansalBilgi()
     {
-        Detay.OlusturmaTarihi = DateTime.UtcNow;
-        Detay.SonGuncelleme = DateTime.UtcNow;
-
-        await DbContext.Projeler.AddAsync(Proje);
-        await DbContext.SaveChangesAsync();
-
-        Detay.ProjeID = Proje.ProjeID;
-        await DbContext.ProjeDetaylari.AddAsync(Detay);
-
-        foreach (var userId in SecilenKullanicilar)
+        if (!string.IsNullOrWhiteSpace(YeniFinansalBilgi.AyrilanButce) || !string.IsNullOrWhiteSpace(YeniFinansalBilgi.IlgiliIs))
         {
-            var uye = new ProjeTakim
+            FinansalBilgiler.Add(new FinansalBilgi
                 {
-                    ProjeID = Proje.ProjeID,
-                    UserID = userId,
-                    AtanmaTarihi = DateTime.UtcNow
-                };
-            await DbContext.ProjeTakimlari.AddAsync(uye);
+                    AyrilanButce = YeniFinansalBilgi.AyrilanButce,
+                    IlgiliIs = YeniFinansalBilgi.IlgiliIs
+                });
+            YeniFinansalBilgi = new();
         }
-
-        await DbContext.SaveChangesAsync();
-        navManager.NavigateTo("/projects");
     }
+
+    private void AddTeknikGereksinim()
+    {
+        if (!string.IsNullOrWhiteSpace(YeniTeknikGereksinim.Gereksinim))
+        {
+            TeknikGereksinimler.Add(new TeknikGereksinim
+                {
+                    Gereksinim = YeniTeknikGereksinim.Gereksinim
+                });
+            YeniTeknikGereksinim = new();
+        }
+    }
+
+    private void AddFonksiyonelGereksinim()
+    {
+        if (!string.IsNullOrWhiteSpace(YeniFonksiyonelGereksinim.Gereklilik))
+        {
+            string onemText = seciliOnem switch
+            {
+                0 => "Düşük",
+                1 => "Orta",
+                2 => "Yüksek",
+                _ => "Bilinmiyor"
+            };
+            FonksiyonelGereksinimler.Add(new FonksiyonelGereksinim
+                {
+                    Gereklilik = YeniFonksiyonelGereksinim.Gereklilik,
+                    Aciklama = YeniFonksiyonelGereksinim.Aciklama,
+                    Onem = onemText
+                });
+            YeniFonksiyonelGereksinim = new();
+        }
+    }
+
+    private async Task OnDiyagramFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        var uploadsFolder = Path.Combine(Env.WebRootPath, "uploads");
+        if (!Directory.Exists(uploadsFolder))
+            Directory.CreateDirectory(uploadsFolder);
+
+        var fileName = $"{Guid.NewGuid()}_{file.Name}";
+        var filePath = Path.Combine(uploadsFolder, fileName);
+
+        await using var stream = File.Create(filePath);
+        await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
+
+        YeniProjeDiyagram.DiyagramUrl = Path.Combine("uploads", fileName).Replace("\\", "/");
+    }
+
+    private void AddProjeDiyagram()
+    {
+        if (!string.IsNullOrWhiteSpace(YeniProjeDiyagram.DiyagramAdi) &&
+            !string.IsNullOrWhiteSpace(YeniProjeDiyagram.DiyagramUrl) &&
+            YeniProjeDiyagram.KategoriID != null)
+        {
+            ProjeDiyagramlari.Add(new ProjeDiyagram
+                {
+                    DiyagramAdi = YeniProjeDiyagram.DiyagramAdi,
+                    DiyagramUrl = YeniProjeDiyagram.DiyagramUrl,
+                    KategoriID = YeniProjeDiyagram.KategoriID
+                });
+            YeniProjeDiyagram = new();
+        }
+    }
+
+
+    private async Task KaydetProje()
+    {
+        try
+        {
+            // 1. Adım: Projeyi ekle (ana kayıt)
+            Proje.ProjeDetay = Detay; // Proje ile Detayını bağla
+            DbContext.Projeler.Add(Proje);
+            await DbContext.SaveChangesAsync(); // Burada ProjeID oluşacak
+
+            int projeId = Proje.ProjeID;
+
+            // 2. Adım: Finansal Bilgileri ekle
+            foreach (var finans in FinansalBilgiler)
+            {
+                finans.ProjeID = projeId;
+                DbContext.FinansalBilgiler.Add(finans);
+            }
+
+            // 3. Adım: Teknik Gereksinimleri ekle
+            foreach (var teknik in TeknikGereksinimler)
+            {
+                teknik.ProjeID = projeId;
+                DbContext.TeknikGereksinimler.Add(teknik);
+            }
+
+            // 4. Adım: Fonksiyonel Gereksinimleri ekle
+            foreach (var fonksiyonel in FonksiyonelGereksinimler)
+            {
+                fonksiyonel.ProjeID = projeId;
+                DbContext.FonksiyonelGereksinimler.Add(fonksiyonel);
+            }
+
+            // 5. Adım: Proje Diyagramlarını ekle
+            foreach (var diyagram in ProjeDiyagramlari)
+            {
+                diyagram.ProjeID = projeId;
+                DbContext.ProjeDiyagramlari.Add(diyagram);
+            }
+
+            // 6. Adım: Takım Üyelerini ekle
+            foreach (var userId in SecilenKullanicilar)
+            {
+                DbContext.ProjeTakimlari.Add(new ProjeTakim
+                    {
+                        ProjeID = projeId,
+                        UserID = userId
+                    });
+            }
+
+            // 7. Adım: Tüm değişiklikleri kaydet
+            await DbContext.SaveChangesAsync();
+
+            // 8. Adım: Başarılı olursa başka sayfaya yönlendir
+            Navigation.NavigateTo("/DefaultHomePage"); // Örneğin proje listesine dönüş
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Proje kaydedilirken hata oluştu: {ex.Message}");
+            // İstersen MudSnackbar ile kullanıcıya da hata mesajı gösterebilirsin.
+        }
+    }
+
+
+
 }
