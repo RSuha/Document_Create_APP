@@ -1,0 +1,33 @@
+﻿@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Kategori Bilgileri</MudText>
+
+        <MudPaper Class="pa-2">
+            <MudText><b>Kategori Adı:</b> @KategoriAdi</MudText>
+        </MudPaper>
+
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Onayla">Onayla</MudButton>
+        <MudButton Color="Color.Secondary" OnClick="Vazgec">Vazgeç</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public string KategoriAdi { get; set; }
+
+    private void Onayla()
+    {
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Vazgec()
+    {
+        MudDialog.Cancel();
+    }
+}

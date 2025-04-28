@@ -2,6 +2,7 @@
 @using CreateDocumentAPP_2.Entities.Model
 @inject ProjeDbContext Db
 @inject IDialogService DialogService
+@inject AuthenticationStateProvider AuthStateProvider
 @using MudBlazor
 
 <MudContainer Class="mt-4">
@@ -10,7 +11,7 @@
             <MudCardContent>
                 <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
                     <MudText Typo="Typo.h4">📄 @proje?.ProjeAdi</MudText>
-                    <MudIconButton Icon="@Icons.Material.Filled.PostAdd" OnClick="() => editMode = !editMode" />
+                    <MudIconButton Icon="@Icons.Material.Filled.PostAdd" OnClick="ToggleEditMode" />
                 </MudStack>
 
                 @if (proje == null)
@@ -64,7 +65,7 @@
 
                     <MudDivider Class="my-4" /> //-------------------------------------------------------------------------------------------------------
 
-                    <MudText Typo="Typo.h6">🎯 Stratejik Hedefler</MudText>
+                    <MudText Typo="Typo.h6">🎯 Proje Hedefi</MudText>
                     <MudText>@proje.ProjeDetay?.StratejikHedefler</MudText>
 
                     <MudDivider Class="my-4" />  //-------------------------------------------------------------------------------------------------------
@@ -242,8 +243,48 @@
     [Parameter]
     public int ProjeID { get; set; }
 
-    
     private Proje? proje;
+    private List<ProjeKategori> kategoriler = new();
+    private bool editMode = false;
+    private List<IGrouping<string?, ProjeDiyagram>> gruplanmisDiyagramlar = new();
+    private KullaniciRol? KullaniciRolu;
+
+    //-------------------------------------------------------------------------------------------------------------------------------
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var email = authState.User.Identity?.Name;
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var currentUser = await Db.Kullanicilar.FirstOrDefaultAsync(k => k.Email == email);
+            if (currentUser != null)
+            {
+                KullaniciRolu = currentUser.Rol;
+            }
+        }
+
+        proje = await Db.Projeler
+            .Include(p => p.Kategori)
+            .Include(p => p.Olusturan).ThenInclude(k => k.Departman)
+            .Include(p => p.FinansalBilgiler)
+            .Include(p => p.TeknikGereksinimler).ThenInclude(t => t.Notlar)
+            .Include(p => p.FonksiyonelGereksinimler).ThenInclude(f => f.Notlar)
+            .Include(p => p.ProjeDetay)
+            .Include(p => p.ProjeDiyagramlari).ThenInclude(d => d.Kategori)
+            .Include(p => p.ProjeUyeleri).ThenInclude(pt => pt.Kullanici)
+            .FirstOrDefaultAsync(p => p.ProjeID == ProjeID);
+
+        kategoriler = await Db.ProjeKategorileri.ToListAsync();
+
+        if (proje?.ProjeDiyagramlari != null)
+        {
+            gruplanmisDiyagramlar = proje.ProjeDiyagramlari
+                .GroupBy(d => d.Kategori != null ? d.Kategori.KategoriAdi : "Kategori Yok")
+                .ToList();
+        }
+    }
 
     //-------------------------------------------------------------------------------------------------------------------------------
 
@@ -262,7 +303,7 @@
 
     //-------------------------------------------------------------------------------------------------------------------------------
 
-    void ShowImage(string? url)
+    private void ShowImage(string? url)
     {
         if (!string.IsNullOrWhiteSpace(url))
         {
@@ -274,6 +315,12 @@
 
     private async Task OpenDynamicDialog(string entityType, int? entityId = null, object? entity = null)
     {
+        if (!HasPermission())
+        {
+            Snackbar.Add("Bu işlemi gerçekleştirmek için yetkiniz bulunmamaktadır.", Severity.Error);
+            return;
+        }
+
         var parameters = new DialogParameters
     {
         { "EntityType", entityType },
@@ -286,7 +333,13 @@
         if (entity is not null)
             parameters.Add("Entity", entity);
 
-        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseButton = true
+            };
+
         var dialog = DialogService.Show<Dialog_AddEntity>("Düzenle", parameters, options);
         var result = await dialog.Result;
 
@@ -299,91 +352,108 @@
 
     //-------------------------------------------------------------------------------------------------------------------------------
 
-    private List<ProjeKategori> kategoriler = new();
-    private bool editMode = false;
-
-    private async Task KaydetProje()
-    {
-        if (proje is not null)
-        {
-            Db.Projeler.Update(proje);
-            await Db.SaveChangesAsync();
-            editMode = false;
-            StateHasChanged();
-        }
-    }
-
-    //-------------------------------------------------------------------------------------------------------------------------------
-
-    private List<IGrouping<string?, ProjeDiyagram>> gruplanmisDiyagramlar = new();
-
-
-    protected override async Task OnInitializedAsync()
-    {
-        proje = await Db.Projeler
-            .Include(p => p.Kategori)
-            .Include(p => p.Olusturan).ThenInclude(k => k.Departman)
-            .Include(p => p.FinansalBilgiler)
-            .Include(p => p.TeknikGereksinimler).ThenInclude(t => t.Notlar)
-            .Include(p => p.FonksiyonelGereksinimler).ThenInclude(f => f.Notlar)
-            .Include(p => p.ProjeDetay)
-            .Include(p => p.ProjeDiyagramlari).ThenInclude(d => d.Kategori) 
-            .Include(p => p.ProjeUyeleri).ThenInclude(pt => pt.Kullanici)
-            .FirstOrDefaultAsync(p => p.ProjeID == ProjeID);
-
-        kategoriler = await Db.ProjeKategorileri.ToListAsync();
-
-        if (proje?.ProjeDiyagramlari != null)
-        {
-            gruplanmisDiyagramlar = proje.ProjeDiyagramlari
-                .GroupBy(d => d.Kategori != null ? d.Kategori.KategoriAdi : "Kategori Yok")
-                .ToList();
-        }
-    }
-
-
-
-    //-------------------------------------------------------------------------------------------------------------------------------
-
     private async void ConfirmDelete(object entity)
     {
+        if (!HasPermission())
+        {
+            Snackbar.Add("Bu işlemi gerçekleştirmek için yetkiniz bulunmamaktadır.", Severity.Error);
+            return;
+        }
+
         var parameters = new DialogParameters
     {
         { "Entity", entity }
     };
 
-        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true,
+                CloseButton = true
+            };
+
         var dialog = DialogService.Show<Dialog_ConfirmDelete>("Silme Onayı", parameters, options);
         var result = await dialog.Result;
 
         if (!result.Canceled)
         {
             await OnInitializedAsync();
-            StateHasChanged();          
+            StateHasChanged();
         }
     }
+
+
+    //-------------------------------------------------------------------------------------------------------------------------------
+
+    private async Task KaydetProje()
+    {
+        if (!HasPermission())
+        {
+            Snackbar.Add("Bu işlemi gerçekleştirmek için yetkiniz bulunmamaktadır.", Severity.Error);
+            return;
+        }
+
+        if (proje is not null)
+        {
+            Db.Projeler.Update(proje);
+            await Db.SaveChangesAsync();
+            editMode = false;
+            StateHasChanged();
+            Snackbar.Add("Proje bilgileri başarıyla güncellendi.", Severity.Success);
+        }
+    }
+
 
     //-------------------------------------------------------------------------------------------------------------------------------
 
     private async void OpenKullaniciAtamaDialog()
     {
+
+        if (!HasPermission())
+        {
+            Snackbar.Add("Bu işlemi gerçekleştirmek için yetkiniz bulunmamaktadır.", Severity.Error);
+            return;
+        }
+
         var parameters = new DialogParameters
             {
                 ["Proje"] = proje,
-                ["CompanyId"] = proje.CompanyID  // Gerekli parametre eklendi
+                ["CompanyId"] = proje?.CompanyID
             };
 
-        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseButton = true
+            };
+
         var dialog = DialogService.Show<Dialog_ProjectAssignment>("Kullanıcı Ata", parameters, options);
         var result = await dialog.Result;
 
         if (!result.Canceled)
         {
-            await OnInitializedAsync(); // proje detayını yeniden yükle
+            await OnInitializedAsync();
             StateHasChanged();
             Snackbar.Add("Kullanıcı başarıyla atandı.", Severity.Success);
-
         }
+    }
+
+    private bool HasPermission()
+    {
+        return KullaniciRolu == KullaniciRol.Admin || KullaniciRolu == KullaniciRol.ProjeYoneticisi;
+    }
+
+
+    private void ToggleEditMode()
+    {
+        if (!HasPermission())
+        {
+            Snackbar.Add("Bu işlemi gerçekleştirmek için yetkiniz bulunmamaktadır.", Severity.Error);
+            return;
+        }
+
+        editMode = !editMode;
     }
 
 }

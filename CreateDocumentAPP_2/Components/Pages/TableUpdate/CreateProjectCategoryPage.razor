@@ -1,0 +1,93 @@
+﻿@page "/new-category"
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject ProjeDbContext DbContext
+@inject NavigationManager Navigation
+
+<MudPaper Class="pa-4">
+
+    <MudText Typo="Typo.h5" Class="mb-4">Yeni Kategori Oluştur</MudText>
+
+    <MudStack Spacing="2">
+
+        <MudTextField Label="Kategori Adı" @bind-Value="KategoriAdi" Required="true" />
+
+        <MudButton Color="Color.Primary" OnClick="OpenPreviewDialog">
+            Kaydet
+        </MudButton>
+
+    </MudStack>
+
+    <MudDivider Class="my-4" />
+
+    <MudText Typo="Typo.h6" Class="mb-2">Mevcut Kategoriler</MudText>
+
+    <MudTable Items="MevcutKategoriler" Dense="true" Hover="true" Bordered="true">
+        <HeaderContent>
+            <MudTh>Kategori ID</MudTh>
+            <MudTh>Kategori Adı</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.KategoriID</MudTd>
+            <MudTd>@context.Ad</MudTd>
+        </RowTemplate>
+    </MudTable>
+
+</MudPaper>
+
+@code {
+    private string KategoriAdi = string.Empty;
+    private List<ProjeKategori> MevcutKategoriler = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        MevcutKategoriler = await DbContext.ProjeKategorileri.OrderBy(k => k.Ad).ToListAsync();
+    }
+
+    private async Task OpenPreviewDialog()
+    {
+        if (string.IsNullOrWhiteSpace(KategoriAdi))
+        {
+            Snackbar.Add("Kategori adı boş olamaz!", Severity.Warning);
+            return;
+        }
+
+        // Duplicate Kontrolü
+        var kategoriVarMi = await DbContext.ProjeKategorileri
+            .AnyAsync(k => k.Ad.ToLower() == KategoriAdi.Trim().ToLower());
+
+        if (kategoriVarMi)
+        {
+            Snackbar.Add("Bu isimde bir kategori zaten mevcut!", Severity.Error);
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            { "KategoriAdi", KategoriAdi }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        var dialog = DialogService.Show<Dialog_PreviewCategory>("Kategori Önizleme", parameters, options);
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            var yeniKategori = new ProjeKategori
+                {
+                    Ad = KategoriAdi.Trim()
+                };
+
+            DbContext.ProjeKategorileri.Add(yeniKategori);
+            await DbContext.SaveChangesAsync();
+
+            Snackbar.Add("Kategori başarıyla oluşturuldu!", Severity.Success);
+
+            MevcutKategoriler = await DbContext.ProjeKategorileri.OrderBy(k => k.Ad).ToListAsync();
+
+            KategoriAdi = string.Empty;
+        }
+    }
+}

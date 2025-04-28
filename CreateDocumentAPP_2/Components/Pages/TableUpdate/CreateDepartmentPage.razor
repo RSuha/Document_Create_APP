@@ -2,11 +2,11 @@
 @inject ProjeDbContext DbContext
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
-
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
 <MudContainer Class="DepartmanConteiner">
+    <!-- Yeni Departman Oluşturma Formu -->
     <MudPaper Class="pa-6">
         <MudText Typo="Typo.h5" Class="mb-4">Yeni Departman Oluştur</MudText>
 
@@ -16,20 +16,35 @@
             Departmanı Önizle
         </MudButton>
     </MudPaper>
-</MudContainer>
 
+    <!-- Mevcut Departmanların Listesi -->
+    <MudDivider Class="my-4" />
+    <MudText Typo="Typo.h6" Class="mb-2">Mevcut Departmanlar</MudText>
+    <MudTable T="Departman" Items="MevcutDepartmanlar" Dense="true" Hover="true" Bordered="true">
+        <HeaderContent>
+            <MudTh>ID</MudTh>
+            <MudTh>Departman Adı</MudTh>
+            <MudTh>Şirket</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="ID">@context.DepartmanID</MudTd>
+            <MudTd DataLabel="Departman Adı">@context.Ad</MudTd>
+            <MudTd DataLabel="Şirket">@context.Company?.Ad</MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudContainer>
 
 <style>
     .DepartmanConteiner {
-        Margin-left:20px;
+        margin-left: 20px;
         padding: 10px;
     }
 </style>
 
-
 @code {
     private string DepartmanAdi = string.Empty;
     private Kullanici? CurrentUser;
+    private List<Departman> MevcutDepartmanlar = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -38,7 +53,17 @@
 
         if (!string.IsNullOrWhiteSpace(email))
         {
-            CurrentUser = await DbContext.Kullanicilar.Include(k => k.Company).FirstOrDefaultAsync(k => k.Email == email);
+            CurrentUser = await DbContext.Kullanicilar.Include(k => k.Company)
+                                                       .FirstOrDefaultAsync(k => k.Email == email);
+            if (CurrentUser != null)
+            {
+                // Şu an kullanıcının şirketine ait departmanları çekiyoruz
+                MevcutDepartmanlar = await DbContext.Departmanlar
+                    .Include(d => d.Company)
+                    .Where(d => d.CompanyID == CurrentUser.CompanyID)
+                    .OrderBy(d => d.Ad)
+                    .ToListAsync();
+            }
         }
     }
 
@@ -50,10 +75,27 @@
             return;
         }
 
+        // Duplicate kontrolü: Aynı isimde departman var mı?
+        var companyId = CurrentUser?.CompanyID;
+        if (companyId == null)
+        {
+            Snackbar.Add("Giriş yapan kullanıcının şirketi bulunamadı!", Severity.Error);
+            return;
+        }
+
+        var mevcut = await DbContext.Departmanlar.FirstOrDefaultAsync(d =>
+            d.Ad.ToLower() == DepartmanAdi.Trim().ToLower() && d.CompanyID == companyId);
+
+        if (mevcut != null)
+        {
+            Snackbar.Add("Bu isimde bir departman zaten var.", Severity.Warning);
+            return;
+        }
+
         var yeniDepartman = new Departman
             {
-                Ad = DepartmanAdi,
-                CompanyID = CurrentUser?.CompanyID ?? 0
+                Ad = DepartmanAdi.Trim(),
+                CompanyID = companyId.Value
             };
 
         var parameters = new DialogParameters
@@ -62,8 +104,9 @@
             { "CompanyName", CurrentUser?.Company?.Ad ?? "Bilinmiyor" }
         };
 
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
 
+        // Dialog açılıyor
         var dialog = await DialogService.ShowAsync<Dialog_PreviewDepartment>("Departman Önizleme", parameters, options);
         var result = await dialog.Result;
 
@@ -83,7 +126,7 @@
         }
 
         var mevcut = await DbContext.Departmanlar.FirstOrDefaultAsync(d =>
-            d.Ad == DepartmanAdi && d.CompanyID == companyId);
+            d.Ad.ToLower() == DepartmanAdi.Trim().ToLower() && d.CompanyID == companyId);
 
         if (mevcut != null)
         {
@@ -93,7 +136,7 @@
 
         var yeniDepartman = new Departman
             {
-                Ad = DepartmanAdi,
+                Ad = DepartmanAdi.Trim(),
                 CompanyID = companyId.Value
             };
 
@@ -101,7 +144,14 @@
         await DbContext.SaveChangesAsync();
 
         Snackbar.Add("✅ Departman başarıyla oluşturuldu!", Severity.Success);
-        Navigation.NavigateTo("/assigment-list");
-    }
 
+        // Listeyi yeniden güncelle: Yeni departmanı içerecek şekilde
+        MevcutDepartmanlar = await DbContext.Departmanlar
+            .Include(d => d.Company)
+            .Where(d => d.CompanyID == companyId)
+            .OrderBy(d => d.Ad)
+            .ToListAsync();
+
+        DepartmanAdi = string.Empty;
+    }
 }

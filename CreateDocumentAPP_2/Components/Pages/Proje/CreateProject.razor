@@ -179,7 +179,7 @@
                     <MudTd>@context.Ad</MudTd>
                     <MudTd>@context.Soyad</MudTd>
                     <MudTd>@context.Email</MudTd>
-                    <MudTd>@context.Departman?.Ad ?? "Departman Yok"</MudTd>
+                    <MudTd>@context.Departman?.Ad</MudTd>
                 </RowTemplate>
             </MudTable>
         </MudStep>
@@ -442,42 +442,42 @@
     {
         try
         {
-            // 1. Adım: Projeyi ekle (ana kayıt)
+            // Projeyi ekle (ana kayıt)
             Proje.ProjeDetay = Detay; // Proje ile Detayını bağla
             DbContext.Projeler.Add(Proje);
             await DbContext.SaveChangesAsync(); // Burada ProjeID oluşacak
 
             int projeId = Proje.ProjeID;
 
-            // 2. Adım: Finansal Bilgileri ekle
+            // Finansal Bilgileri ekle
             foreach (var finans in FinansalBilgiler)
             {
                 finans.ProjeID = projeId;
                 DbContext.FinansalBilgiler.Add(finans);
             }
 
-            // 3. Adım: Teknik Gereksinimleri ekle
+            // Teknik Gereksinimleri ekle
             foreach (var teknik in TeknikGereksinimler)
             {
                 teknik.ProjeID = projeId;
                 DbContext.TeknikGereksinimler.Add(teknik);
             }
 
-            // 4. Adım: Fonksiyonel Gereksinimleri ekle
+            // Fonksiyonel Gereksinimleri ekle
             foreach (var fonksiyonel in FonksiyonelGereksinimler)
             {
                 fonksiyonel.ProjeID = projeId;
                 DbContext.FonksiyonelGereksinimler.Add(fonksiyonel);
             }
 
-            // 5. Adım: Proje Diyagramlarını ekle
+            // Proje Diyagramlarını ekle
             foreach (var diyagram in ProjeDiyagramlari)
             {
                 diyagram.ProjeID = projeId;
                 DbContext.ProjeDiyagramlari.Add(diyagram);
             }
 
-            // 6. Adım: Takım Üyelerini ekle
+            // Takım Üyelerini ekle
             foreach (var userId in SecilenKullanicilar)
             {
                 DbContext.ProjeTakimlari.Add(new ProjeTakim
@@ -487,16 +487,13 @@
                     });
             }
 
-            // 7. Adım: Tüm değişiklikleri kaydet
             await DbContext.SaveChangesAsync();
 
-            // 8. Adım: Başarılı olursa başka sayfaya yönlendir
-            Navigation.NavigateTo("/DefaultHomePage"); // Örneğin proje listesine dönüş
+            Navigation.NavigateTo("/DefaultHomePage");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Proje kaydedilirken hata oluştu: {ex.Message}");
-            // İstersen MudSnackbar ile kullanıcıya da hata mesajı gösterebilirsin.
         }
     }
 

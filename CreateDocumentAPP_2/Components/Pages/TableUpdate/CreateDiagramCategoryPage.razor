@@ -1,0 +1,92 @@
+﻿@page "/new-diagram-category"
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject ProjeDbContext DbContext
+@inject NavigationManager Navigation
+
+<MudPaper Class="pa-4">
+
+    <MudText Typo="Typo.h5" Class="mb-4">Yeni Diyagram Kategorisi Oluştur</MudText>
+
+    <MudStack Spacing="2">
+
+        <MudTextField Label="Diyagram Kategori Adı" @bind-Value="KategoriAdi" Required="true" />
+
+        <MudButton Color="Color.Primary" OnClick="OpenPreviewDialog">
+            Kaydet
+        </MudButton>
+
+    </MudStack>
+
+    <MudDivider Class="my-4" />
+
+    <MudText Typo="Typo.h6" Class="mb-2">Mevcut Diyagram Kategorileri</MudText>
+
+    <MudTable Items="MevcutKategoriler" Dense="true" Hover="true" Bordered="true">
+        <HeaderContent>
+            <MudTh>Kategori ID</MudTh>
+            <MudTh>Kategori Adı</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.KategoriID</MudTd>
+            <MudTd>@context.KategoriAdi</MudTd>
+        </RowTemplate>
+    </MudTable>
+
+</MudPaper>
+
+@code {
+    private string KategoriAdi = string.Empty;
+    private List<DiyagramKategori> MevcutKategoriler = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        MevcutKategoriler = await DbContext.DiyagramKategorileri.OrderBy(k => k.KategoriAdi).ToListAsync();
+    }
+
+    private async Task OpenPreviewDialog()
+    {
+        if (string.IsNullOrWhiteSpace(KategoriAdi))
+        {
+            Snackbar.Add("Kategori adı boş olamaz!", Severity.Warning);
+            return;
+        }
+
+        var kategoriVarMi = await DbContext.DiyagramKategorileri
+            .AnyAsync(k => k.KategoriAdi.ToLower() == KategoriAdi.Trim().ToLower());
+
+        if (kategoriVarMi)
+        {
+            Snackbar.Add("Bu isimde bir diyagram kategorisi zaten mevcut!", Severity.Error);
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            { "KategoriAdi", KategoriAdi }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        var dialog = DialogService.Show<Dialog_PreviewDiagramCategory>("Diyagram Kategori Önizleme", parameters, options);
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            var yeniKategori = new DiyagramKategori
+                {
+                    KategoriAdi = KategoriAdi.Trim()
+                };
+
+            DbContext.DiyagramKategorileri.Add(yeniKategori);
+            await DbContext.SaveChangesAsync();
+
+            Snackbar.Add("Diyagram kategorisi başarıyla oluşturuldu!", Severity.Success);
+
+            MevcutKategoriler = await DbContext.DiyagramKategorileri.OrderBy(k => k.KategoriAdi).ToListAsync();
+
+            KategoriAdi = string.Empty;
+        }
+    }
+}
